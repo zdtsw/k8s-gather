@@ -55,7 +55,11 @@ function kubectl_inspect() {
         $KUBECTL get replicasets -n "$namespace" -o yaml > "${ns_dir}/apps/replicasets.yaml" 2>/dev/null
         $KUBECTL get roles -n "$namespace" -o yaml > "${ns_dir}/core/roles.yaml" 2>/dev/null
         $KUBECTL get rolebindings -n "$namespace" -o yaml > "${ns_dir}/core/rolebindings.yaml" 2>/dev/null
+        $KUBECTL get serviceaccounts -n "$namespace" -o yaml > "${ns_dir}/core/serviceaccounts.yaml" 2>/dev/null
+        $KUBECTL get networkpolicies -n "$namespace" -o yaml > "${ns_dir}/core/networkpolicies.yaml" 2>/dev/null
         $KUBECTL get routes -n "$namespace" -o yaml > "${ns_dir}/core/routes.yaml" 2>/dev/null
+        $KUBECTL get jobs -n "$namespace" -o yaml > "${ns_dir}/apps/jobs.yaml" 2>/dev/null
+        $KUBECTL get cronjobs -n "$namespace" -o yaml > "${ns_dir}/apps/cronjobs.yaml" 2>/dev/null
 
         # Get events
         $KUBECTL get events -n "$namespace" -o yaml > "${ns_dir}/events/events.yaml" 2>/dev/null
