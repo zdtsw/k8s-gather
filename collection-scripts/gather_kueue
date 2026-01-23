@@ -1,0 +1,8 @@
+#!/bin/bash
+# shellcheck disable=SC1091
+source common.sh
+resources=("admissionchecks" "cohorts" "clusterqueues" "localqueues" "multikueueclusters" "multikueueconfigs" "provisioningrequestconfigs" "resourceflavors" "workloads" "workloadpriorityclasses")
+
+nslist=$(get_all_namespace "${resources[@]}")
+
+run_k8sgather "$nslist" "${resources[@]}"

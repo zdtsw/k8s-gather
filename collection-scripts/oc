@@ -1,0 +1,67 @@
+#!/bin/bash
+# oc wrapper - intercepts 'oc adm inspect' and uses kubectl_inspect
+
+if [[ "$1" == "adm" && "$2" == "inspect" ]]; then
+    shift 2  # remove 'adm inspect'
+
+    # Parse arguments
+    dest_dir=""
+    resource=""
+    namespace=""
+    all_namespaces=""
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --dest-dir=*)
+                dest_dir="${1#*=}"
+                shift
+                ;;
+            --dest-dir)
+                dest_dir="$2"
+                shift 2
+                ;;
+            -n)
+                namespace="$2"
+                shift 2
+                ;;
+            --all-namespaces)
+                all_namespaces="true"
+                shift
+                ;;
+            --since=*|--since-time=*)
+                # ignore log args for now
+                shift
+                ;;
+            -*)
+                # ignore other flags
+                shift
+                ;;
+            *)
+                resource="$1"
+                shift
+                ;;
+        esac
+    done
+
+    # Source common.sh
+    source /usr/bin/common.sh
+
+    # Override DST_DIR if --dest-dir was specified
+    if [[ -n "$dest_dir" ]]; then
+        export DST_DIR="$dest_dir"
+        mkdir -p "$DST_DIR"
+    fi
+
+    # Call kubectl_inspect with resource and namespace
+    if [[ -n "$namespace" ]]; then
+        kubectl_inspect "$resource" "$namespace"
+    elif [[ -n "$all_namespaces" ]]; then
+        # For --all-namespaces, just collect the cluster-scoped resource
+        kubectl_inspect "$resource"
+    else
+        kubectl_inspect "$resource"
+    fi
+else
+    # Pass through to kubectl
+    kubectl "$@"
+fi

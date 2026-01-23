@@ -1,0 +1,101 @@
+#!/bin/bash
+# k8s-gather: Compatible with vanilla k8s, adoption of must-gather
+
+source common.sh
+
+# for new flag to get since and since-time
+get_log_collection_args
+
+# Create output directory
+mkdir -p "$DST_DIR"
+
+# define default namespaces (can be overridden via env vars)
+OPERATOR_NS=${OPERATOR_NAMESPACE:-redhat-ods-operator}
+APPLICATIONS_NS=${APPLICATIONS_NAMESPACE:-redhat-ods-applications}
+GW_NS=${GW_NAMESPACE:-openshift-ingress}
+KUADRANT_NS=${KUADRANT_NAMESPACE:-kuadrant-system}
+ISTIO_NS=${ISTIO_NAMESPACE:-istio-system}
+
+# generate 'info' file
+cat > "$DST_DIR/info" <<EOF
+k8s-gather
+Timestamp: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
+Kubernetes: $($KUBECTL version --short 2>/dev/null || $KUBECTL version -o json 2>/dev/null | jq -r '.serverVersion.gitVersion')
+$(get_operator_version "$OPERATOR_NS")
+
+COMPONENT=${COMPONENT:-all}
+ENABLE_SERVING=${ENABLE_SERVING:-true}
+ENABLE_KUEUE=${ENABLE_KUEUE:-false}
+ENABLE_KUBERAY=${ENABLE_KUBERAY:-false}
+OPERATOR_NAMESPACE=${OPERATOR_NS}
+APPLICATIONS_NAMESPACE=${APPLICATIONS_NS}
+GW_NAMESPACE=${GW_NS}
+KUADRANT_NAMESPACE=${KUADRANT_NS}
+MUST_GATHER_SINCE=${MUST_GATHER_SINCE:-}
+MUST_GATHER_SINCE_TIME=${MUST_GATHER_SINCE_TIME:-}
+EOF
+
+# Collect core namespaces
+kubectl_inspect "namespace/$OPERATOR_NS" || echo "Namespace ${OPERATOR_NS} not found"
+kubectl_inspect "namespace/$APPLICATIONS_NS" || echo "Namespace ${APPLICATIONS_NS} not found"
+kubectl_inspect "namespace/$GW_NS" || echo "Namespace ${GW_NS} not found"
+kubectl_inspect "namespace/$KUADRANT_NS" || echo "Namespace ${KUADRANT_NS} not found"
+kubectl_inspect "namespace/$ISTIO_NS" || echo "Namespace ${ISTIO_NS} not found"
+
+# Collect cluster-scoped resources
+resources=(
+  # Core k8s
+  "nodes"
+  "persistentvolumes"
+  "clusterroles"
+  "clusterrolebindings"
+  "storageclasses"
+  "customresourcedefinitions"
+  "priorityclasses"
+  # Webhooks
+  "mutatingwebhookconfigurations.admissionregistration.k8s.io"
+  "validatingwebhookconfigurations.admissionregistration.k8s.io"
+  "validatingadmissionpolicy"
+  "validatingadmissionpolicybinding"
+  # Gateway API
+  "gatewayclasses"
+  # ODH/RHOAI
+  "dscinitialization"
+  "datasciencecluster"
+  "kserves.components.platform.opendatahub.io"
+  "kueues.components.platform.opendatahub.io"
+  "rays.components.platform.opendatahub.io"
+)
+get_operator_resource "${resources[@]}"
+
+# set component or default to all
+component=${COMPONENT:-all}
+case "$component" in
+    "kserve")
+        /usr/bin/gather_serving
+        ;;
+    "kuberay")
+        /usr/bin/gather_kuberay
+        ;;
+    "kueue")
+        /usr/bin/gather_kueue
+        ;;
+    *) # for all - run enabled components in parallel
+        [[ "$ENABLE_SERVING" == "true" ]] && /usr/bin/gather_serving &
+        [[ "$ENABLE_KUBERAY" == "true" ]] && /usr/bin/gather_kuberay &
+        [[ "$ENABLE_KUEUE" == "true" ]] && /usr/bin/gather_kueue
+        ;;
+esac
+
+# Infrastructure components (uses oc wrapper for oc adm inspect)
+/usr/bin/gather_istio &
+# /usr/bin/gather_metallb &  # disabled: issue with name
+/usr/bin/gather_sriov &
+
+# wait for all background jobs to complete
+wait
+
+# force disk flush to ensure that all data gathered is accessible in the copy container
+sync
+
+echo "k8s-gather complete. Output in: $DST_DIR"

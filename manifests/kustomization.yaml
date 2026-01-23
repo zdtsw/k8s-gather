@@ -1,0 +1,32 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - namespace.yaml
+  - serviceaccount.yaml
+  - clusterrolebinding.yaml
+  - pod.yaml
+
+# Set namespace on all namespaced resources from namespace.yaml
+replacements:
+  - source:
+      kind: Namespace
+      name: k8s-gather
+      fieldPath: metadata.name
+    targets:
+      - select:
+          kind: ServiceAccount
+        fieldPaths:
+          - metadata.namespace
+        options:
+          create: true
+      - select:
+          kind: Pod
+        fieldPaths:
+          - metadata.namespace
+        options:
+          create: true
+      - select:
+          kind: ClusterRoleBinding
+        fieldPaths:
+          - subjects.0.namespace
