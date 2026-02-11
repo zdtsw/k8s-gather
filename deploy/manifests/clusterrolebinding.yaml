@@ -9,4 +9,4 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: k8s-gather-sa
-  namespace: KUSTOMIZE_NAMESPACE
+  namespace: k8s-gather  # Replaced by Kustomize from namespace.yaml

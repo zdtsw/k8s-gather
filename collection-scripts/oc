@@ -43,8 +43,8 @@ if [[ "$1" == "adm" && "$2" == "inspect" ]]; then
         esac
     done
 
-    # Source common.sh
-    source /usr/bin/common.sh
+    # Source functions.sh
+    source /usr/bin/k8s-gather/functions.sh
 
     # Override DST_DIR if --dest-dir was specified
     if [[ -n "$dest_dir" ]]; then

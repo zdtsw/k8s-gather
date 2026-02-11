@@ -15,18 +15,25 @@ RUN microdnf install -y --nodocs --setopt=install_weak_deps=0 jq tar gzip && \
     rm kubectl
 
 # Copy local collection scripts
-COPY collection-scripts/* /usr/bin/
+COPY collection-scripts/common.sh /usr/bin/k8s-gather/
+COPY collection-scripts/functions.sh /usr/bin/k8s-gather/
+COPY collection-scripts/gather /usr/bin/k8s-gather/
+COPY collection-scripts/oc /usr/bin/k8s-gather/
+COPY collection-scripts/component/ /usr/bin/k8s-gather/component/
+COPY collection-scripts/distro/ /usr/bin/k8s-gather/distro/
+COPY collection-scripts/deps/ /usr/bin/k8s-gather/deps/
 
 # copy upstream infrastructure gather scripts
 COPY --from=upstream \
     /upstream/collection-scripts/gather_istio \
     /upstream/collection-scripts/gather_metallb \
     /upstream/collection-scripts/gather_sriov \
-    /usr/bin/
+    /usr/bin/k8s-gather/
 
-RUN chmod +x /usr/bin/gather_* /usr/bin/oc /usr/bin/gather /usr/bin/common.sh && \
-    mkdir -p /must-gather && chmod 777 /must-gather
+RUN chmod -R +x /usr/bin/k8s-gather && \
+    mkdir -p /must-gather && chmod 777 /must-gather && \
+    ln -s /usr/bin/k8s-gather/oc /usr/local/bin/oc
 
 WORKDIR /tmp
 
-ENTRYPOINT ["/usr/bin/gather"]
+ENTRYPOINT ["/usr/bin/k8s-gather/gather"]
