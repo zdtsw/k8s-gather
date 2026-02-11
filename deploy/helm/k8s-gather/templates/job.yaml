@@ -1,0 +1,57 @@
+{{- if .Values.useJob }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Values.job.name }}
+  namespace: {{ .Values.namespace.name }}
+spec:
+  {{- if .Values.job.ttlSecondsAfterFinished }}
+  ttlSecondsAfterFinished: {{ .Values.job.ttlSecondsAfterFinished }}
+  {{- end }}
+  template:
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+      restartPolicy: {{ .Values.pod.restartPolicy }}
+      containers:
+      - name: gather
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        env:
+        - name: ENABLE_ALL
+          value: {{ .Values.pod.env.enableAll | quote }}
+        - name: ENABLE_SERVING
+          value: {{ .Values.pod.env.enableServing | quote }}
+        - name: ENABLE_KUEUE
+          value: {{ .Values.pod.env.enableKueue | quote }}
+        - name: ENABLE_KUBERAY
+          value: {{ .Values.pod.env.enableKuberay | quote }}
+        {{- if .Values.pod.env.operatorNamespace }}
+        - name: OPERATOR_NAMESPACE
+          value: {{ .Values.pod.env.operatorNamespace | quote }}
+        {{- end }}
+        {{- if .Values.pod.env.applicationsNamespace }}
+        - name: APPLICATIONS_NAMESPACE
+          value: {{ .Values.pod.env.applicationsNamespace | quote }}
+        {{- end }}
+        {{- if .Values.pod.env.istioNamespace }}
+        - name: ISTIO_NAMESPACE
+          value: {{ .Values.pod.env.istioNamespace | quote }}
+        {{- end }}
+        {{- if .Values.pod.env.routeNamespace }}
+        - name: ROUTE_NAMESPACE
+          value: {{ .Values.pod.env.routeNamespace | quote }}
+        {{- end }}
+        {{- if .Values.pod.env.kuadrantNamespace }}
+        - name: KUADRANT_NAMESPACE
+          value: {{ .Values.pod.env.kuadrantNamespace | quote }}
+        {{- end }}
+        {{- if .Values.pod.env.mustGatherSince }}
+        - name: MUST_GATHER_SINCE
+          value: {{ .Values.pod.env.mustGatherSince | quote }}
+        {{- end }}
+        {{- if .Values.pod.env.mustGatherSinceTime }}
+        - name: MUST_GATHER_SINCE_TIME
+          value: {{ .Values.pod.env.mustGatherSinceTime | quote }}
+        {{- end }}
+        command: ["/bin/bash", "-c", "cd /tmp && /usr/bin/k8s-gather/gather && sleep {{ .Values.pod.sleepTime }}"]
+{{- end }}

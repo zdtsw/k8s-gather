@@ -1,7 +1,7 @@
 #!/bin/bash
 # LLM-D component gathering script - collects KServe and related resources
 # shellcheck disable=SC1091
-source "$(dirname "$0")/../functions.sh"
+source "$(dirname "$0")/../common.sh"
 
 # Core KServe resources
 resources=(

@@ -1,7 +1,7 @@
 #!/bin/bash
 # Sail Operator dependency gathering script - collects Istio lifecycle management resources
 # shellcheck disable=SC1091
-source "$(dirname "$0")/../functions.sh"
+source "$(dirname "$0")/../common.sh"
 
 # Sail Operator resources (Istio lifecycle management)
 # https://github.com/istio-ecosystem/sail-operator

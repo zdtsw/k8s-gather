@@ -4,12 +4,14 @@
 # Do not change this value, upstream hardcode it, change here might cause problem
 export DST_DIR="/must-gather"
 
-# Use kubectl (or oc if available when we change base image)
-if command -v oc &> /dev/null; then
-    export KUBECTL="oc"
-else
-    export KUBECTL="kubectl"
-fi
+# Use kubectl for all operations
+export KUBECTL="kubectl"
+
+# Component collection flags (default: collect only serving)
+export ENABLE_ALL=${ENABLE_ALL:-false}
+export ENABLE_SERVING=${ENABLE_SERVING:-true}
+export ENABLE_KUEUE=${ENABLE_KUEUE:-false}
+export ENABLE_KUBERAY=${ENABLE_KUBERAY:-false}
 
 # Detect xKS distro
 function detect_k8s_distro() {
@@ -65,8 +67,6 @@ if $KUBECTL api-resources 2>/dev/null | grep -q "networking.istio.io"; then
     DEFAULT_RESOURCES+=("${ISTIO_RESOURCES[@]}")
 fi
 
-# Note: No need to export arrays - all scripts source this file and run in the same shell
-
 # Source distribution-specific configuration
 DISTRO_FILE="$(dirname "${BASH_SOURCE[0]}")/distro/${K8S_DISTRO}.sh"
 if [ -f "${DISTRO_FILE}" ]; then
@@ -74,4 +74,10 @@ if [ -f "${DISTRO_FILE}" ]; then
 else
     # Fallback to other.sh for unknown distributions
     source "$(dirname "${BASH_SOURCE[0]}")/distro/other.sh"
+fi
+
+# Source functions (must come after distro config is loaded)
+FUNCTIONS_FILE="$(dirname "${BASH_SOURCE[0]}")/functions.sh"
+if [ -f "${FUNCTIONS_FILE}" ]; then
+    source "${FUNCTIONS_FILE}"
 fi

@@ -1,7 +1,11 @@
 #!/bin/bash
 # k8s-gather: Compatible with vanilla k8s, adoption of must-gather
 
-source functions.sh
+# Get script directory for sourcing
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Source common.sh which loads functions.sh
+source "$SCRIPT_DIR/common.sh"
 
 # for new flag to get since and since-time
 get_log_collection_args
@@ -9,36 +13,20 @@ get_log_collection_args
 # Create output directory
 mkdir -p "$DST_DIR"
 
-# Set operator namespace (use env var if set, otherwise detect dynamically)
+# Set operator and application namespaces
 if [[ -n "${OPERATOR_NAMESPACE}" ]]; then
+    # Use env vars if provided
     OPERATOR_NS="${OPERATOR_NAMESPACE}"
+    APPLICATIONS_NS="${APPLICATIONS_NAMESPACE:-redhat-ods-applications}"
 else
-    # Dynamically detect operator namespace
-    detected_ns=$(get_operator_ns "opendatahub-operator")
-    if [ -z "${detected_ns}" ]; then
-        detected_ns=$(get_operator_ns "rhods-operator")
+    # Detect operator namespace from subscriptions
+    OPERATOR_NS=$(get_operator_ns)
+    if [[ -z "${OPERATOR_NS}" ]]; then
+        echo "ERROR: No operator subscription found (rhods-operator or opendatahub-operator)."
+        echo "Set OPERATOR_NAMESPACE and APPLICATIONS_NAMESPACE environment variables to override."
+        exit 1
     fi
-    OPERATOR_NS="${detected_ns:-redhat-ods-operator}"
-fi
-
-# Map operator namespace to application namespace (only if not already set)
-if [[ -z "${APPLICATIONS_NAMESPACE}" ]]; then
-    case "${OPERATOR_NS}" in
-        openshift-operators)
-            APPLICATIONS_NS="opendatahub"
-            ;;
-        redhat-ods-operator)
-            APPLICATIONS_NS="redhat-ods-applications"
-            ;;
-        *)
-            echo "Error: Operator namespace '${OPERATOR_NS}' is not supported."
-            echo "Supported namespaces: openshift-operators, redhat-ods-operator"
-            echo "Or set both OPERATOR_NAMESPACE and APPLICATIONS_NAMESPACE environment variables."
-            exit 1
-            ;;
-    esac
-else
-    APPLICATIONS_NS="${APPLICATIONS_NAMESPACE}"
+    # APPLICATIONS_NS is set by get_operator_ns function
 fi
 
 # Istio namespace - use distribution-specific default from distro files
@@ -57,15 +45,28 @@ Kubernetes: $($KUBECTL version --short 2>/dev/null || $KUBECTL version -o json 2
 Distribution: ${K8S_DISTRO}
 $(get_operator_version "$OPERATOR_NS")
 
-COMPONENT=${COMPONENT:-all}
-ENABLE_SERVING=${ENABLE_SERVING:-true}
-ENABLE_KUEUE=${ENABLE_KUEUE:-false}
-ENABLE_KUBERAY=${ENABLE_KUBERAY:-false}
-OPERATOR_NAMESPACE=${OPERATOR_NS}
-APPLICATIONS_NAMESPACE=${APPLICATIONS_NS}
-ISTIO_NAMESPACE=${ISTIO_NS}
-MUST_GATHER_SINCE=${MUST_GATHER_SINCE:-}
-MUST_GATHER_SINCE_TIME=${MUST_GATHER_SINCE_TIME:-}
+Collection Configuration:
+$( if [[ "${ENABLE_ALL}" == "true" ]]; then
+    echo "  Collecting ALL components:"
+    echo "    - KServe/LLM-D"
+    echo "    - Kueue"
+    echo "    - KubeRay"
+else
+    echo "  Collecting enabled components:"
+    [[ "${ENABLE_SERVING}" == "true" ]] && echo "    - KServe/LLM-D (enabled)" || echo "    - KServe/LLM-D (disabled, skipped)"
+    [[ "${ENABLE_KUEUE}" == "true" ]] && echo "    - Kueue (enabled)" || echo "    - Kueue (disabled, skipped)"
+    [[ "${ENABLE_KUBERAY}" == "true" ]] && echo "    - KubeRay (enabled)" || echo "    - KubeRay (disabled, skipped)"
+fi )
+
+Namespaces:
+  OPERATOR_NAMESPACE=${OPERATOR_NS}
+  APPLICATIONS_NAMESPACE=${APPLICATIONS_NS}
+  ISTIO_NAMESPACE=${ISTIO_NS}
+$( [[ "${K8S_DISTRO}" == "ocp" ]] && echo "  ROUTE_NAMESPACE=${ROUTE_NS}" )
+
+Log Filters:
+  MUST_GATHER_SINCE=${MUST_GATHER_SINCE:-none}
+  MUST_GATHER_SINCE_TIME=${MUST_GATHER_SINCE_TIME:-none}
 EOF
 
 # Collect core namespaces
@@ -102,34 +103,28 @@ resources=(
 )
 get_operator_resource "${resources[@]}"
 
-# set component or default to all
-component=${COMPONENT:-all}
-case "$component" in
-    "llm-d"|"kserve")
-        /usr/bin/k8s-gather/component/llm-d.sh
-        ;;
-    "kuberay")
-        /usr/bin/k8s-gather/component/kuberay.sh
-        ;;
-    "kueue")
-        /usr/bin/k8s-gather/component/kueue.sh
-        ;;
-    *) # for all - run enabled components in parallel
-        [[ "$ENABLE_SERVING" == "true" ]] && /usr/bin/k8s-gather/component/llm-d.sh &
-        [[ "$ENABLE_KUBERAY" == "true" ]] && /usr/bin/k8s-gather/component/kuberay.sh &
-        [[ "$ENABLE_KUEUE" == "true" ]] && /usr/bin/k8s-gather/component/kueue.sh
-        ;;
-esac
+# Component collection
+if [[ "${ENABLE_ALL}" == "true" ]]; then
+    # Collect all components
+    $SCRIPT_DIR/component/llm-d.sh &
+    $SCRIPT_DIR/component/kuberay.sh &
+    $SCRIPT_DIR/component/kueue.sh
+else
+    # Collect only enabled components
+    [[ "${ENABLE_SERVING}" == "true" ]] && $SCRIPT_DIR/component/llm-d.sh &
+    [[ "${ENABLE_KUBERAY}" == "true" ]] && $SCRIPT_DIR/component/kuberay.sh &
+    [[ "${ENABLE_KUEUE}" == "true" ]] && $SCRIPT_DIR/component/kueue.sh
+fi
 
 # Dependency operators (always collected)
-/usr/bin/k8s-gather/deps/cert-manager.sh &
-/usr/bin/k8s-gather/deps/sail.sh &
-/usr/bin/k8s-gather/deps/lws.sh &
+$SCRIPT_DIR/deps/cert-manager.sh &
+$SCRIPT_DIR/deps/sail.sh &
+$SCRIPT_DIR/deps/lws.sh &
 
 # Infrastructure components from upstream
-/usr/bin/k8s-gather/gather_istio &
-# /usr/bin/k8s-gather/gather_metallb &  # disabled: issue with name
-/usr/bin/k8s-gather/gather_sriov &
+$SCRIPT_DIR/gather_istio &
+# $SCRIPT_DIR/gather_metallb &  # disabled: issue with name
+$SCRIPT_DIR/gather_sriov &
 
 # wait for all background jobs to complete
 wait

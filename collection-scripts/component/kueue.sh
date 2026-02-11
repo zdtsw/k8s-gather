@@ -1,7 +1,7 @@
 #!/bin/bash
 # Kueue component gathering script - collects Kueue job queueing resources
 # shellcheck disable=SC1091
-source "$(dirname "$0")/../functions.sh"
+source "$(dirname "$0")/../common.sh"
 
 # Kueue resources (kueue.x-k8s.io)
 # https://kueue.sigs.k8s.io/

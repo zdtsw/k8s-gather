@@ -1,7 +1,7 @@
 #!/bin/bash
 # cert-manager dependency gathering script - collects certificate management resources
 # shellcheck disable=SC1091
-source "$(dirname "$0")/../functions.sh"
+source "$(dirname "$0")/../common.sh"
 
 # cert-manager core resources
 # https://cert-manager.io/

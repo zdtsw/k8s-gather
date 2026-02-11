@@ -1,67 +1,54 @@
 #!/bin/bash
 # oc wrapper - intercepts 'oc adm inspect' and uses kubectl_inspect
 
-if [[ "$1" == "adm" && "$2" == "inspect" ]]; then
-    shift 2  # remove 'adm inspect'
+original_args=("$@")
 
+# Check if this is 'oc adm inspect' using simple pattern match
+if [[ " ${original_args[*]} " =~ " adm " ]] && [[ " ${original_args[*]} " =~ " inspect " ]]; then
     # Parse arguments
-    dest_dir=""
-    resource=""
     namespace=""
-    all_namespaces=""
+    resource=""
+    dest_dir=""
 
-    while [[ $# -gt 0 ]]; do
-        case "$1" in
-            --dest-dir=*)
-                dest_dir="${1#*=}"
-                shift
+    i=0
+    while [[ $i -lt ${#original_args[@]} ]]; do
+        arg="${original_args[$i]}"
+        case "$arg" in
+            -n|--namespace)
+                ((i++))
+                namespace="${original_args[$i]}"
                 ;;
-            --dest-dir)
-                dest_dir="$2"
-                shift 2
+            --dest-dir)  # for upstream script
+                ((i++))
+                dest_dir="${original_args[$i]}"
                 ;;
-            -n)
-                namespace="$2"
-                shift 2
+            --dest-dir=*) # for upstream script
+                dest_dir="${arg#*=}"
                 ;;
-            --all-namespaces)
-                all_namespaces="true"
-                shift
-                ;;
-            --since=*|--since-time=*)
-                # ignore log args for now
-                shift
-                ;;
-            -*)
-                # ignore other flags
-                shift
+            adm|inspect|--*|-*)
+                # Skip keywords, flags we don't handle
                 ;;
             *)
-                resource="$1"
-                shift
+                resource="$arg"
                 ;;
         esac
+        ((i++))
     done
 
-    # Source functions.sh
-    source /usr/bin/k8s-gather/functions.sh
+    # Source common.sh (resolve symlink first)
+    SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+    source "$SCRIPT_DIR/common.sh"
 
-    # Override DST_DIR if --dest-dir was specified
-    if [[ -n "$dest_dir" ]]; then
-        export DST_DIR="$dest_dir"
-        mkdir -p "$DST_DIR"
-    fi
+    # Override DST_DIR if specified
+    [[ -n "$dest_dir" ]] && { export DST_DIR="$dest_dir"; mkdir -p "$DST_DIR"; }
 
-    # Call kubectl_inspect with resource and namespace
+    # Call kubectl_inspect
     if [[ -n "$namespace" ]]; then
         kubectl_inspect "$resource" "$namespace"
-    elif [[ -n "$all_namespaces" ]]; then
-        # For --all-namespaces, just collect the cluster-scoped resource
-        kubectl_inspect "$resource"
     else
         kubectl_inspect "$resource"
     fi
 else
-    # Pass through to kubectl
-    kubectl "$@"
+    # Not 'oc adm inspect' - pass through to kubectl
+    kubectl "${original_args[@]}"
 fi

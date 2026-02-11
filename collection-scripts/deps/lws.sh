@@ -1,7 +1,7 @@
 #!/bin/bash
 # Leader Worker Set dependency gathering script - collects LWS resources
 # shellcheck disable=SC1091
-source "$(dirname "$0")/../functions.sh"
+source "$(dirname "$0")/../common.sh"
 
 # Leader Worker Set resources
 # https://github.com/kubernetes-sigs/lws

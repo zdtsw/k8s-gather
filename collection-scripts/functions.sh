@@ -5,8 +5,7 @@
 # Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Source environment variables and configuration
-source "${SCRIPT_DIR}/common.sh"
+# Note: common.sh sources this file, so we don't source common.sh here to avoid circular dependency
 
 # kubectl-based replacement for 'oc adm inspect'
 # Collects: namespace yaml, all resources, pod logs, events
@@ -144,29 +143,61 @@ function get_operator_resource() {
     done
 }
 
-# Get operator namespace by looking for deployments with specific labels
+# Get operator namespace by checking subscriptions
+# To match the function in upstream get_operator_ns, we need to have such checks
+# Parameters:
+#   $1 - Optional operator name to search for (e.g., "sriov-network-operator")
+# Returns: namespace if found, empty string otherwise
+# Also sets APPLICATIONS_NS global variable based on which operator is found
 function get_operator_ns() {
-    local operator_name="$1"
+    local search_operator="$1"
+    local operator_ns=""
 
-    # Try to find by subscription (OCP)
-    if command -v oc &> /dev/null; then
-        operator_ns=$($KUBECTL get subs -A -o jsonpath="{.items[?(@.spec.name==\"${operator_name}\")].metadata.namespace}" 2>/dev/null)
+    # If a specific operator is requested, search for it
+    if [[ -n "${search_operator}" ]]; then
+        operator_ns=$($KUBECTL get subscriptions -A -o jsonpath="{.items[?(@.spec.name=='${search_operator}')].metadata.namespace}" 2>/dev/null)
+        if [[ -n "${operator_ns}" ]]; then
+            echo "${operator_ns}"
+            return
+        fi
+
+        # If not found via subscription, try finding by deployment label or name
+        operator_ns=$($KUBECTL get deployments -A -l "app=${search_operator}" -o jsonpath='{.items[0].metadata.namespace}' 2>/dev/null)
+        if [[ -n "${operator_ns}" ]]; then
+            echo "${operator_ns}"
+            return
+        fi
+
+        # Try finding by deployment name
+        operator_ns=$($KUBECTL get deployments -A -o jsonpath="{.items[?(@.metadata.name=='${search_operator}')].metadata.namespace}" 2>/dev/null)
+        if [[ -n "${operator_ns}" ]]; then
+            echo "${operator_ns}"
+            return
+        fi
+
+        echo ""
+        return
     fi
 
-    # Fallback: search by deployment name pattern
-    if [ -z "${operator_ns}" ]; then
-        operator_ns=$($KUBECTL get deployments -A -o jsonpath="{.items[?(@.metadata.name==\"${operator_name}\")].metadata.namespace}" 2>/dev/null)
+    # No specific operator requested - check for default RHOAI/ODH operators
+    # Check for rhods-operator subscription first
+    operator_ns=$($KUBECTL get subscriptions -A -o jsonpath="{.items[?(@.spec.name=='rhods-operator')].metadata.namespace}" 2>/dev/null)
+    if [[ -n "${operator_ns}" ]]; then
+        APPLICATIONS_NS="${APPLICATIONS_NAMESPACE:-redhat-ods-applications}"
+        echo "${operator_ns}"
+        return
     fi
 
-    if [ -z "${operator_ns}" ]; then
-        echo "INFO: ${operator_name} not detected. Skipping."
-        exit 0
+    # Check for opendatahub-operator subscription
+    operator_ns=$($KUBECTL get subscriptions -A -o jsonpath="{.items[?(@.spec.name=='opendatahub-operator')].metadata.namespace}" 2>/dev/null)
+    if [[ -n "${operator_ns}" ]]; then
+        APPLICATIONS_NS="${APPLICATIONS_NAMESPACE:-opendatahub}"
+        echo "${operator_ns}"
+        return
     fi
 
-    if [[ "$(echo "${operator_ns}" | wc -w)" -gt 1 ]]; then
-        echo "ERROR: found more than one ${operator_name}. Exiting."
-        exit 1
-    fi
+    # Neither found
+    echo ""
 }
 
 # Handle --since and --since-time arguments

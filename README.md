@@ -13,57 +13,48 @@ Unlike `oc adm must-gather` which is OpenShift-specific, k8s-gather uses standar
 - **Distribution-Aware**: Collects OpenShift-specific resources (Routes, Kuadrant) only when on OCP
 - Runs as a Pod in-cluster with proper RBAC
 
-## How to
-
-### Build and push image
-
-Skip this step if using a pre-built image.
+## Quick Start
 
 ```bash
-# Build and push (default: podman, quay.io/$USER/k8s-gather)
-make build-and-push
+# Install from quay registry
+helm install k8s-gather oci://quay.io/wenzhou/charts/k8s-gather \
+  --version 1.0.0 -n k8s-gather --create-namespace
 
-# Or use docker
-make build-and-push IMAGE_BUILDER=docker
-```
+# Wait for completion
+kubectl wait --for=condition=complete job/k8s-gather-job -n k8s-gather --timeout=5m
 
-> **Note:** Override image with env variable `IMG` in the Makefile.
-
-### Deploy and get to local host
-
-```bash
-# Login to your cluster first
-# K8s: export KUBECONFIG=/path/to/kubeconfig
-# OpenShift: oc login --server=<cluster-api> --token=<token>
-
-# Update deploy/manifests/pod.yaml:
-#   - Line 9: Set your container image
-#   - Lines 10-28: Adjust environment variables as needed (see Configuration section)
-#   - Default: Only KServe/LLM-D collection is enabled (ENABLE_SERVING=true)
-kubectl apply -k deploy/manifests/
-
-# Wait for gather to complete
-kubectl logs -f k8s-gather-pod -n k8s-gather
-
-# Copy output locally
-kubectl cp k8s-gather/k8s-gather-pod:/must-gather ./my-k8s-gather 2>/dev/null | grep -v "tar: Removing"
+# Copy results locally
+POD=$(kubectl get pods -n k8s-gather -l job-name=k8s-gather-job -o jsonpath='{.items[0].metadata.name}')
+kubectl cp k8s-gather/$POD:/must-gather ./my-k8s-gather
 
 # Cleanup
-kubectl delete -k deploy/manifests/
+helm uninstall k8s-gather -n k8s-gather
 ```
 
-> **Note:** To use a different namespace, edit the namespace name in `deploy/manifests/namespace.yaml`. Kustomize will automatically update all resources to use that namespace.
+**Enable additional components:**
+```bash
+# All components (KServe/LLM-D + Kueue + KubeRay)
+--set pod.env.enableAll=true
+
+# Specific components
+--set pod.env.enableKueue=true --set pod.env.enableKuberay=true
+```
+
+> **Prefer Kustomize?** See [Local Development](#local-development) for deployment using [deploy/manifests/](deploy/manifests/).
 
 ## Configuration
 
-Set environment variables to customize collection:
+**Kustomize**: Edit environment variables in [deploy/manifests/job.yaml](deploy/manifests/job.yaml)
+**Helm**: Use `--set` flags (e.g., `--set pod.env.enableKueue=true`) or see [deploy/helm/README.md](deploy/helm/README.md)
+
+Available configuration options:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `COMPONENT` | `all` | Component to collect (see Components section) |
-| `ENABLE_SERVING` | `true` | Enable KServe/LLM-D collection (when COMPONENT=all) |
-| `ENABLE_KUEUE` | `false` | Enable Kueue collection (when COMPONENT=all) |
-| `ENABLE_KUBERAY` | `false` | Enable KubeRay collection (when COMPONENT=all) |
+| `ENABLE_ALL` | `false` | Collect all components (overrides individual ENABLE_* flags) |
+| `ENABLE_SERVING` | `true` | Enable KServe/LLM-D collection (when ENABLE_ALL=false) |
+| `ENABLE_KUEUE` | `false` | Enable Kueue collection (when ENABLE_ALL=false) |
+| `ENABLE_KUBERAY` | `false` | Enable KubeRay collection (when ENABLE_ALL=false) |
 | `OPERATOR_NAMESPACE` | *auto-detected* | Operator namespace (opendatahub-operator or rhods-operator, fallback: redhat-ods-operator) |
 | `APPLICATIONS_NAMESPACE` | *auto-mapped* | Application namespace (mapped from operator namespace, or override) |
 | `ISTIO_NAMESPACE` | `istio-system` | Istio service mesh namespace (all distributions) |
@@ -74,10 +65,14 @@ Set environment variables to customize collection:
 
 ### Components
 
-- `all` (default) - Collect all enabled components + dependencies + infrastructure
-- `llm-d` or `kserve` - Model Serving (KServe, LLM-D, Gateway API Inference Extension)
-- `kuberay` - Ray distributed compute clusters (requires KubeRay operator installed)
-- `kueue` - Job queueing and workload management (requires Kueue operator installed)
+By default, only KServe/LLM-D is collected (`ENABLE_SERVING=true`). You can:
+- Set `ENABLE_ALL=true` to collect all components (KServe/LLM-D, Kueue, KubeRay)
+- Or individually enable components with `ENABLE_KUEUE=true` and/or `ENABLE_KUBERAY=true`
+
+Available components:
+- **KServe/LLM-D** - Model Serving (KServe, LLM-D, Gateway API Inference Extension)
+- **KubeRay** - Ray distributed compute clusters (requires KubeRay operator installed)
+- **Kueue** - Job queueing and workload management (requires Kueue operator installed)
 
 > **Note:** Component collection requires the respective operators to be installed in your cluster. k8s-gather will only collect resources that exist.
 
@@ -118,6 +113,56 @@ k8s-gather automatically detects your Kubernetes distribution and adapts resourc
 | **Azure (AKS)** | Standard features (custom features planned) | ✅ Supported |
 | **Other** (GKE, EKS, vanilla K8s) | Standard features only | 🚧 Planned to be added in future release |
 
+## Local Development
+
+For contributors who want to build and test locally:
+
+### Build and push image
+
+```bash
+# Build and push to your registry
+make image-build image-push IMG=quay.io/$USER/k8s-gather IMG_VERSION=dev
+
+# Build with custom kubectl version or upstream commit
+make image-build KUBECTL_VERSION=v1.32.0 UPSTREAM_COMMIT=<commit-hash>
+```
+
+**Available build variables:**
+- `IMG` - Container image name (default: `quay.io/$USER/k8s-gather`)
+- `IMG_VERSION` - Image tag (default: `v1.0.0`)
+- `IMAGE_BUILDER` - Builder tool: `podman` or `docker` (default: `podman`)
+- `KUBECTL_VERSION` - kubectl version (default: `v1.31.4`)
+- `UPSTREAM_COMMIT` - [must-gather](https://github.com/openshift/must-gather) commit hash (default: `bd9f061`)
+
+### Build and push Helm chart
+
+```bash
+# Package and push chart to your registry
+make helm-push HELM_REGISTRY=oci://quay.io/$USER/charts
+```
+
+### Deploy from local filesystem
+
+**Using Kustomize:**
+```bash
+# Edit deploy/manifests/job.yaml to set your image
+kubectl apply -k deploy/manifests/
+kubectl wait --for=condition=complete job/k8s-gather-job -n k8s-gather --timeout=5m
+POD=$(kubectl get pods -n k8s-gather -l job-name=k8s-gather-job -o jsonpath='{.items[0].metadata.name}')
+kubectl cp k8s-gather/$POD:/must-gather ./my-k8s-gather
+kubectl delete -k deploy/manifests/
+```
+
+**Using Helm:**
+```bash
+# Deploy from local chart directory
+helm install k8s-gather ./deploy/helm/k8s-gather -n k8s-gather --create-namespace \
+  --set image.repository=quay.io/$USER/k8s-gather --set image.tag=dev
+kubectl wait --for=condition=complete job/k8s-gather-job -n k8s-gather --timeout=5m
+POD=$(kubectl get pods -n k8s-gather -l job-name=k8s-gather-job -o jsonpath='{.items[0].metadata.name}')
+kubectl cp k8s-gather/$POD:/must-gather ./my-k8s-gather
+helm uninstall k8s-gather -n k8s-gather
+```
 
 ## Permissions
 

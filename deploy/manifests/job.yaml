@@ -1,0 +1,36 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: k8s-gather-job
+spec:
+  ttlSecondsAfterFinished: 3600  # Clean up 1 hour after completion
+  template:
+    spec:
+      serviceAccountName: k8s-gather-sa
+      restartPolicy: Never
+      containers:
+      - name: gather
+        image: quay.io/wenzhou/k8s-gather:v1.0.0
+        imagePullPolicy: Always
+        env:
+        - name: ENABLE_ALL
+          value: "false"
+        - name: ENABLE_SERVING
+          value: "true"
+        - name: ENABLE_KUEUE
+          value: "false"
+        - name: ENABLE_KUBERAY
+          value: "false"
+        # - name: OPERATOR_NAMESPACE
+        #   value: "openshift-operators"
+        # - name: APPLICATIONS_NAMESPACE
+        #   value: "opendatahub"
+        # - name: ISTIO_NAMESPACE
+        #   value: "istio-system"
+        # - name: ROUTE_NAMESPACE
+        #   value: "openshift-ingress"
+        # - name: KUADRANT_NAMESPACE
+        #   value: "kuadrant-system"
+        # - name: MUST_GATHER_SINCE
+        #   value: "1h"
+        command: ["/bin/bash", "-c", "cd /tmp && /usr/bin/k8s-gather/gather && sleep 600"]

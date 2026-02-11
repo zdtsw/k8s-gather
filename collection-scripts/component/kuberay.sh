@@ -1,6 +1,6 @@
 #!/bin/bash
 # shellcheck disable=SC1091
-source "$(dirname "$0")/../functions.sh"
+source "$(dirname "$0")/../common.sh"
 resources=("rayclusters" "rayjobs" "rayservices")
 
 nslist=$(get_all_namespace "${resources[@]}")

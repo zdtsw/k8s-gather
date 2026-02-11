@@ -5,7 +5,7 @@ resources:
   - namespace.yaml
   - serviceaccount.yaml
   - clusterrolebinding.yaml
-  - pod.yaml
+  - job.yaml
 
 # Set namespace on all namespaced resources from namespace.yaml
 replacements:
@@ -21,7 +21,7 @@ replacements:
         options:
           create: true
       - select:
-          kind: Pod
+          kind: Job
         fieldPaths:
           - metadata.namespace
         options:

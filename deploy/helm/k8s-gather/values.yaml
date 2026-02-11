@@ -1,0 +1,64 @@
+# Default values for k8s-gather
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# Container image configuration
+image:
+  repository: quay.io/wenzhou/k8s-gather
+  tag: v1.0.0
+  pullPolicy: IfNotPresent
+
+# Namespace configuration
+namespace:
+  name: k8s-gather
+  create: true
+
+# ServiceAccount configuration
+serviceAccount:
+  name: k8s-gather-sa
+  create: true
+
+# RBAC configuration
+rbac:
+  create: true
+  clusterRoleBinding:
+    name: k8s-gather-admin
+
+# Pod configuration
+pod:
+  name: k8s-gather-pod
+  restartPolicy: Never
+
+  # Time to keep pod alive after gather completes (seconds)
+  # This allows time to copy results with kubectl cp before pod terminates
+  sleepTime: 600
+
+  # Environment variables for collection configuration
+  env:
+    # Collect all components (overrides individual enable flags below)
+    enableAll: false
+
+    # Individual component enablement (only used when enableAll=false)
+    enableServing: true
+    enableKueue: false
+    enableKuberay: false
+
+    # Namespace configuration (auto-detected if not set)
+    # operatorNamespace: "openshift-operators"
+    # applicationsNamespace: "opendatahub"
+    # istioNamespace: "istio-system"
+    # routeNamespace: "openshift-ingress"  # OCP only
+    # kuadrantNamespace: "kuadrant-system"  # OCP only
+
+    # Log collection time filters
+    # mustGatherSince: "1h"
+    # mustGatherSinceTime: ""  # RFC3339 format
+
+# Use Job instead of Pod for better automation support
+useJob: true
+
+job:
+  name: k8s-gather-job
+  # Auto-cleanup completed job after specified seconds (optional)
+  # Uncomment to enable automatic deletion after job completes
+  # ttlSecondsAfterFinished: 3600  # Clean up Job 1 hour after completion
