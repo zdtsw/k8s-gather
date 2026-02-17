@@ -33,11 +33,10 @@ helm uninstall k8s-gather -n k8s-gather && kubectl delete namespace k8s-gather
 
 **Upgrade to a new version:**
 ```bash
-+# Default (Job): delete job first, then upgrade (Jobs are immutable)
-+kubectl delete job k8s-gather-job -n k8s-gather && \
-+helm upgrade k8s-gather oci://quay.io/wenzhou/charts/k8s-gather --version <new-version> -n k8s-gather
-+
-+# If using Pod (--set useJob=false): upgrade in place
+# Default (Job): delete job first, then upgrade (Jobs are immutable)
+kubectl delete job k8s-gather-job -n k8s-gather && \
+helm upgrade k8s-gather oci://quay.io/wenzhou/charts/k8s-gather --version <new-version> -n k8s-gather
+# If using Pod (--set useJob=false): upgrade in place
 helm upgrade k8s-gather oci://quay.io/wenzhou/charts/k8s-gather --version <new-version> -n k8s-gather
 ```
 
