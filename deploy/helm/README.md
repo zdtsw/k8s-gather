@@ -24,7 +24,7 @@ The following table lists the configurable parameters of the k8s-gather chart an
 | Parameter | Description | Default |
 |-----------|-------------|---------|
 | `image.repository` | Container image repository | `quay.io/wenzhou/k8s-gather` |
-| `image.tag` | Container image tag | `v1.0.0` |
+| `image.tag` | Container image tag | `v1.1.0` |
 | `image.pullPolicy` | Image pull policy | `IfNotPresent` |
 | `namespace.name` | Namespace name | `k8s-gather` |
 | `namespace.create` | Create namespace | `true` |

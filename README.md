@@ -18,7 +18,7 @@ Unlike `oc adm must-gather` which is OpenShift-specific, k8s-gather uses standar
 ```bash
 # Install from quay registry
 helm install k8s-gather oci://quay.io/wenzhou/charts/k8s-gather \
-  --version 1.0.0 -n k8s-gather --create-namespace
+  --version 1.1.0 -n k8s-gather --create-namespace
 
 # Wait for completion
 kubectl wait --for=condition=complete job/k8s-gather-job -n k8s-gather --timeout=5m
@@ -139,7 +139,7 @@ make image-build KUBECTL_VERSION=v1.32.0 UPSTREAM_COMMIT=<commit-hash>
 
 **Available build variables:**
 - `IMG` - Container image name (default: `quay.io/$USER/k8s-gather`)
-- `IMG_VERSION` - Image tag (default: `v1.0.0`)
+- `IMG_VERSION` - Image tag (default: `v1.1.0`)
 - `IMAGE_BUILDER` - Builder tool: `podman` or `docker` (default: `podman`)
 - `KUBECTL_VERSION` - kubectl version (default: `v1.31.4`)
 - `UPSTREAM_COMMIT` - [must-gather](https://github.com/openshift/must-gather) commit hash (default: `bd9f061`)

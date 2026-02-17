@@ -10,7 +10,7 @@ spec:
       restartPolicy: Never
       containers:
       - name: gather
-        image: quay.io/wenzhou/k8s-gather:v1.0.0
+        image: quay.io/wenzhou/k8s-gather:v1.1.0
         imagePullPolicy: Always
         env:
         - name: ENABLE_ALL
