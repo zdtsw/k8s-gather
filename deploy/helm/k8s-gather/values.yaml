@@ -11,7 +11,7 @@ image:
 # Namespace configuration
 namespace:
   name: k8s-gather
-  create: true
+  create: false
 
 # ServiceAccount configuration
 serviceAccount:
