@@ -46,7 +46,8 @@ function detect_k8s_distro() {
 }
 
 # Initialize distro detection and export for use in all scripts
-export K8S_DISTRO=$(detect_k8s_distro)
+K8S_DISTRO=$(detect_k8s_distro)
+export K8S_DISTRO
 
 # Standard Gateway API resources (optional but available across distributions)
 GATEWAY_API_RESOURCES=(
@@ -76,14 +77,17 @@ fi
 # Source distribution-specific configuration
 DISTRO_FILE="$(dirname "${BASH_SOURCE[0]}")/distro/${K8S_DISTRO}.sh"
 if [ -f "${DISTRO_FILE}" ]; then
+    # shellcheck disable=SC1090
     source "${DISTRO_FILE}"
 else
     # Fallback to other.sh for unknown distributions
+    # shellcheck disable=SC1090
     source "$(dirname "${BASH_SOURCE[0]}")/distro/other.sh"
 fi
 
 # Source functions (must come after distro config is loaded)
 FUNCTIONS_FILE="$(dirname "${BASH_SOURCE[0]}")/functions.sh"
 if [ -f "${FUNCTIONS_FILE}" ]; then
+    # shellcheck disable=SC1090
     source "${FUNCTIONS_FILE}"
 fi
