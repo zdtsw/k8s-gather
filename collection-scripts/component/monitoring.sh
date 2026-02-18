@@ -7,6 +7,9 @@ source "$(dirname "$0")/../common.sh"
 # Default to self-hosted when not specified
 AKS_MONITORING_TYPE=${AKS_MONITORING_TYPE:-self-hosted}
 
+# Initialize log collection args (will be set by get_log_collection_args function)
+log_collection_args=""
+
 # Collect monitoring based on deployment type
 if [[ "${K8S_DISTRO}" == "aks" && "${AKS_MONITORING_TYPE}" == "managed" ]]; then
     # Azure Managed Prometheus (AMP) - collect ama-metrics pods and logs from kube-system
@@ -16,9 +19,12 @@ if [[ "${K8S_DISTRO}" == "aks" && "${AKS_MONITORING_TYPE}" == "managed" ]]; then
 
     echo "INFO: Collecting Azure Managed Prometheus (ama-metrics) pods and logs from ${AMA_NS}"
 
+    # Get log collection arguments (sets global log_collection_args variable)
+    get_log_collection_args
+
     # Collect all ama-metrics pods with logs (from DaemonSet and ReplicaSets)
     for pod in $($KUBECTL get pods -n "${AMA_NS}" -o name 2>/dev/null | grep '^pod/ama-metrics' | sed 's|^pod/||'); do
-        local pod_dir="${AMA_DIR}/pods/${pod}"
+        pod_dir="${AMA_DIR}/pods/${pod}"
         mkdir -p "${pod_dir}"
 
         # Get pod yaml and description
@@ -28,8 +34,10 @@ if [[ "${K8S_DISTRO}" == "aks" && "${AKS_MONITORING_TYPE}" == "managed" ]]; then
         # Get logs for each container
         for container in $($KUBECTL get pod "$pod" -n "${AMA_NS}" -o jsonpath='{.spec.containers[*].name}' 2>/dev/null); do
             mkdir -p "${pod_dir}/${container}/logs"
-            $KUBECTL logs "$pod" -n "${AMA_NS}" -c "$container" $(get_log_collection_args) > "${pod_dir}/${container}/logs/current.log" 2>/dev/null
-            $KUBECTL logs "$pod" -n "${AMA_NS}" -c "$container" --previous $(get_log_collection_args) > "${pod_dir}/${container}/logs/previous.log" 2>/dev/null
+            # shellcheck disable=SC2086
+            $KUBECTL logs "$pod" -n "${AMA_NS}" -c "$container" $log_collection_args > "${pod_dir}/${container}/logs/current.log" 2>/dev/null
+            # shellcheck disable=SC2086
+            $KUBECTL logs "$pod" -n "${AMA_NS}" -c "$container" --previous $log_collection_args > "${pod_dir}/${container}/logs/previous.log" 2>/dev/null
         done
     done
 else
