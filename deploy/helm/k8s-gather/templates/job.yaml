@@ -25,6 +25,8 @@ spec:
           value: {{ .Values.pod.env.enableKueue | quote }}
         - name: ENABLE_KUBERAY
           value: {{ .Values.pod.env.enableKuberay | quote }}
+        - name: ENABLE_MONITORING
+          value: {{ .Values.pod.env.enableMonitoring | quote }}
         {{- if .Values.pod.env.operatorNamespace }}
         - name: OPERATOR_NAMESPACE
           value: {{ .Values.pod.env.operatorNamespace | quote }}
@@ -44,6 +46,18 @@ spec:
         {{- if .Values.pod.env.kuadrantNamespace }}
         - name: KUADRANT_NAMESPACE
           value: {{ .Values.pod.env.kuadrantNamespace | quote }}
+        {{- end }}
+        {{- if .Values.pod.env.enableMonitoring }}
+        {{- if ne .Values.pod.env.aksMonitoringType "managed" }}
+        {{- if .Values.pod.env.monitoringNamespace }}
+        - name: MONITORING_NAMESPACE
+          value: {{ .Values.pod.env.monitoringNamespace | quote }}
+        {{- end }}
+        {{- end }}
+        {{- if .Values.pod.env.aksMonitoringType }}
+        - name: AKS_MONITORING_TYPE
+          value: {{ .Values.pod.env.aksMonitoringType | quote }}
+        {{- end }}
         {{- end }}
         {{- if .Values.pod.env.mustGatherSince }}
         - name: MUST_GATHER_SINCE

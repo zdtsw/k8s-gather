@@ -29,14 +29,6 @@ else
     # APPLICATIONS_NS is set by get_operator_ns function
 fi
 
-# Istio namespace - use distribution-specific default from distro files
-ISTIO_NS=${ISTIO_NAMESPACE:-${DEFAULT_ISTIO_NS}}
-
-# Route namespace (OpenShift only)
-if [[ "${K8S_DISTRO}" == "ocp" ]]; then
-    ROUTE_NS=${ROUTE_NAMESPACE:-${DEFAULT_ROUTE_NS:-openshift-ingress}}
-fi
-
 # generate 'info' file
 cat > "$DST_DIR/info" <<EOF
 k8s-gather
@@ -51,18 +43,19 @@ $( if [[ "${ENABLE_ALL}" == "true" ]]; then
     echo "    - KServe/LLM-D"
     echo "    - Kueue"
     echo "    - KubeRay"
+    echo "    - Monitoring"
 else
     echo "  Collecting enabled components:"
     [[ "${ENABLE_SERVING}" == "true" ]] && echo "    - KServe/LLM-D (enabled)" || echo "    - KServe/LLM-D (disabled, skipped)"
     [[ "${ENABLE_KUEUE}" == "true" ]] && echo "    - Kueue (enabled)" || echo "    - Kueue (disabled, skipped)"
     [[ "${ENABLE_KUBERAY}" == "true" ]] && echo "    - KubeRay (enabled)" || echo "    - KubeRay (disabled, skipped)"
+    [[ "${ENABLE_MONITORING}" == "true" ]] && echo "    - Monitoring (enabled)" || echo "    - Monitoring (disabled, skipped)"
 fi )
 
 Namespaces:
   OPERATOR_NAMESPACE=${OPERATOR_NS}
   APPLICATIONS_NAMESPACE=${APPLICATIONS_NS}
-  ISTIO_NAMESPACE=${ISTIO_NS}
-$( [[ "${K8S_DISTRO}" == "ocp" ]] && echo "  ROUTE_NAMESPACE=${ROUTE_NS}" )
+$( [[ -n "${ROUTE_NS}" ]] && echo "  ROUTE_NAMESPACE=${ROUTE_NS}" )
 
 Log Filters:
   MUST_GATHER_SINCE=${MUST_GATHER_SINCE:-none}
@@ -72,10 +65,9 @@ EOF
 # Collect core namespaces
 kubectl_inspect "namespace/$OPERATOR_NS" || echo "Namespace ${OPERATOR_NS} not found"
 kubectl_inspect "namespace/$APPLICATIONS_NS" || echo "Namespace ${APPLICATIONS_NS} not found"
-kubectl_inspect "namespace/$ISTIO_NS" || echo "Namespace ${ISTIO_NS} not found"
 
-# Collect route namespace (OpenShift only)
-if [[ "${K8S_DISTRO}" == "ocp" ]]; then
+# Collect route namespace (if set, e.g., on OpenShift)
+if [[ -n "${ROUTE_NS}" ]]; then
     kubectl_inspect "namespace/$ROUTE_NS" || echo "Namespace ${ROUTE_NS} not found"
 fi
 
@@ -108,12 +100,14 @@ if [[ "${ENABLE_ALL}" == "true" ]]; then
     # Collect all components
     $SCRIPT_DIR/component/llm-d.sh &
     $SCRIPT_DIR/component/kuberay.sh &
-    $SCRIPT_DIR/component/kueue.sh
+    $SCRIPT_DIR/component/kueue.sh &
+    $SCRIPT_DIR/component/monitoring.sh
 else
     # Collect only enabled components
     [[ "${ENABLE_SERVING}" == "true" ]] && $SCRIPT_DIR/component/llm-d.sh &
     [[ "${ENABLE_KUBERAY}" == "true" ]] && $SCRIPT_DIR/component/kuberay.sh &
-    [[ "${ENABLE_KUEUE}" == "true" ]] && $SCRIPT_DIR/component/kueue.sh
+    [[ "${ENABLE_KUEUE}" == "true" ]] && $SCRIPT_DIR/component/kueue.sh &
+    [[ "${ENABLE_MONITORING}" == "true" ]] && $SCRIPT_DIR/component/monitoring.sh
 fi
 
 # Dependency operators (always collected)

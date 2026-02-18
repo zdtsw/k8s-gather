@@ -64,17 +64,20 @@ Available configuration options:
 | `ENABLE_SERVING` | `true` | Enable KServe/LLM-D collection (when ENABLE_ALL=false) |
 | `ENABLE_KUEUE` | `false` | Enable Kueue collection (when ENABLE_ALL=false) |
 | `ENABLE_KUBERAY` | `false` | Enable KubeRay collection (when ENABLE_ALL=false) |
+| `ENABLE_MONITORING` | `true` | Enable Prometheus Operator monitoring collection |
 | `OPERATOR_NAMESPACE` | *auto-detected* | Operator namespace (opendatahub-operator or rhods-operator, fallback: redhat-ods-operator) |
 | `APPLICATIONS_NAMESPACE` | *auto-mapped* | Application namespace (mapped from operator namespace, or override) |
 | `ISTIO_NAMESPACE` | `istio-system` | Istio service mesh namespace (all distributions) |
 | `ROUTE_NAMESPACE` | `openshift-ingress` | OpenShift Routes namespace (OCP only) |
 | `KUADRANT_NAMESPACE` | `kuadrant-system` | Kuadrant namespace (OCP only) |
+| `MONITORING_NAMESPACE` | *distro-default* | Monitoring namespace for self-hosted Prometheus/Grafana (OCP: `openshift-monitoring`, others: `monitoring`) |
+| `AKS_MONITORING_TYPE` | `managed` | Monitoring type: `managed` (Azure Managed Prometheus) or `self-hosted` (kube-prometheus-stack) (AKS only) |
 | `MUST_GATHER_SINCE` | - | Time duration for logs (e.g., `1h`, `30m`) |
 | `MUST_GATHER_SINCE_TIME` | - | Absolute timestamp for logs (RFC3339 format) |
 
 ### Components
 
-By default, only KServe/LLM-D is collected (`ENABLE_SERVING=true`). You can:
+By default, KServe/LLM-D and monitoring are collected (`ENABLE_SERVING=true`, `ENABLE_MONITORING=true`). You can:
 - Set `ENABLE_ALL=true` to collect all components (KServe/LLM-D, Kueue, KubeRay)
 - Or individually enable components with `ENABLE_KUEUE=true` and/or `ENABLE_KUBERAY=true`
 
@@ -82,6 +85,9 @@ Available components:
 - **KServe/LLM-D** - Model Serving (KServe, LLM-D, Gateway API Inference Extension)
 - **KubeRay** - Ray distributed compute clusters (requires KubeRay operator installed)
 - **Kueue** - Job queueing and workload management (requires Kueue operator installed)
+- **Monitoring** - Prometheus Operator resources (ServiceMonitor, PodMonitor, PrometheusRule, etc.)
+  - **Self-hosted**: Collects kube-prometheus-stack or OpenShift monitoring resources
+  - **AKS Managed**: Collects Azure Managed Prometheus (ama-metrics) pods and logs when `AKS_MONITORING_TYPE=managed`
 
 > **Note:** Component collection requires the respective operators to be installed in your cluster. k8s-gather will only collect resources that exist.
 
@@ -100,7 +106,11 @@ Available components:
 ### Dependency Operators
 - **cert-manager**: Certificate management resources
 - **Sail Operator**: Istio lifecycle management
-- **Leader Worker Set**: Distributed workload coordination (includes OCP operator)
+- **Leader Worker Set**: Distributed workload coordination (optional, only collected if deployed)
+
+### Monitoring
+- **Prometheus Operator** (self-hosted): ServiceMonitors, PodMonitors, PrometheusRules, Prometheus, Alertmanager, and monitoring namespace resources
+- **Azure Managed Prometheus** (AKS): ama-metrics pods and logs from kube-system namespace (only when `ENABLE_MONITORING=true` and `AKS_MONITORING_TYPE=managed` on AKS)
 
 ### Infrastructure (via upstream must-gather scripts)
 - **Istio**: Service mesh resources

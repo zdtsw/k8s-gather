@@ -21,3 +21,6 @@ nslist=$(get_all_namespace "${resources[@]}")
 
 # Run collection across all identified namespaces
 run_k8sgather "$nslist" "${resources[@]}"
+
+# Collect LWS operator namespace
+kubectl_inspect "namespace/openshift-lws-operator" || echo "WARNING: Namespace openshift-lws-operator not found"

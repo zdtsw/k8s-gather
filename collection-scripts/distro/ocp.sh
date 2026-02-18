@@ -1,10 +1,13 @@
 #!/bin/bash
 # OpenShift (OCP) specific configuration
 
-# Default Istio namespace (used for gateway and service mesh)
+# Default Istio namespace
 export DEFAULT_ISTIO_NS="istio-system"
 
-# Default route namespace (OpenShift routes)
-export DEFAULT_ROUTE_NS="openshift-ingress"
+# Default monitoring namespace (OpenShift built-in monitoring)
+export DEFAULT_MONITORING_NS="openshift-monitoring"
+
+# Route namespace (OpenShift Routes)
+export ROUTE_NS=${ROUTE_NAMESPACE:-openshift-ingress}
 
 # Additional OCP-specific configurations can go here

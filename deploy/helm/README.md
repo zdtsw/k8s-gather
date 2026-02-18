@@ -33,11 +33,15 @@ The following table lists the configurable parameters of the k8s-gather chart an
 | `rbac.create` | Create RBAC resources | `true` |
 | `pod.name` | Pod name (when useJob=false) | `k8s-gather-pod` |
 | `pod.restartPolicy` | Pod restart policy | `Never` |
-| `pod.sleepTime` | Time (seconds) to keep pod running after gather completes | `120` |
+| `pod.sleepTime` | Time (seconds) to keep pod running after gather completes | `600` |
+| `pod.env.enableAll` | Enable all components (overrides individual flags) | `false` |
 | `pod.env.enableServing` | Enable KServe/LLM-D collection | `true` |
 | `pod.env.enableKueue` | Enable Kueue collection | `false` |
 | `pod.env.enableKuberay` | Enable KubeRay collection | `false` |
-| `useJob` | Use Job instead of Pod | `false` |
+| `pod.env.enableMonitoring` | Enable Prometheus Operator monitoring collection | `true` |
+| `pod.env.monitoringNamespace` | Monitoring namespace for self-hosted Prometheus/Grafana (optional, auto-detected by distro) | Not set |
+| `pod.env.aksMonitoringType` | Monitoring type: `managed` (Azure Managed Prometheus) or `self-hosted` (kube-prometheus-stack) (AKS only) | Not set |
+| `useJob` | Use Job instead of Pod | `true` |
 | `job.name` | Job name (when useJob=true) | `k8s-gather-job` |
 | `job.ttlSecondsAfterFinished` | Auto-cleanup job after completion (seconds) | Not set (no auto-cleanup) |
 
