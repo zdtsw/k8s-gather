@@ -1,0 +1,93 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+jobs:
+  shellcheck:
+    name: Lint Bash Scripts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Run shellcheck
+        uses: ludeeus/action-shellcheck@master
+        with:
+          scandir: './collection-scripts'
+          severity: warning
+
+  helm-lint:
+    name: Lint Helm Chart
+    runs-on: ubuntu-latest
+    needs: shellcheck
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4.3.0
+        with:
+          version: 'latest'
+
+      - name: Lint Helm chart
+        run: helm lint deploy/helm/k8s-gather
+
+  build:
+    name: Build Image and Chart
+    runs-on: ubuntu-latest
+    needs: helm-lint
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set image version
+        id: version
+        run: |
+          SHORT_SHA=${GITHUB_SHA::8}
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            echo "version=pr-${{ github.event.pull_request.number }}-${SHORT_SHA}" >> $GITHUB_OUTPUT
+          else
+            echo "version=${GITHUB_REF_NAME}-${SHORT_SHA}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4.3.0
+        with:
+          version: 'latest'
+
+      - name: Build image and package Helm chart
+        run: make image-build helm-package
+        env:
+          IMAGE_BUILDER: docker
+          IMG: ghcr.io/${{ github.repository }}
+          IMG_VERSION: ${{ steps.version.outputs.version }}
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push image to GHCR
+        run: make image-push
+        env:
+          IMAGE_BUILDER: docker
+          IMG: ghcr.io/${{ github.repository }}
+          IMG_VERSION: ${{ steps.version.outputs.version }}
+
+      - name: Upload Helm chart artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: helm-chart
+          path: k8s-gather-*.tgz
+          retention-days: 14

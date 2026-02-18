@@ -7,11 +7,17 @@ export DST_DIR="/must-gather"
 # Use kubectl for all operations
 export KUBECTL="kubectl"
 
-# Component collection flags (default: collect only serving)
+# Component collection flags (default: collect serving and monitoring)
 export ENABLE_ALL=${ENABLE_ALL:-false}
 export ENABLE_SERVING=${ENABLE_SERVING:-true}
 export ENABLE_KUEUE=${ENABLE_KUEUE:-false}
 export ENABLE_KUBERAY=${ENABLE_KUBERAY:-false}
+export ENABLE_MONITORING=${ENABLE_MONITORING:-true}
+
+# AKS monitoring type: "managed" for Azure Managed Prometheus, "self-hosted" for kube-prometheus-stack
+# Only applies when K8S_DISTRO=aks and ENABLE_MONITORING=true
+# Default to "managed" since AMP is the standard out-of-box monitoring solution on AKS
+export AKS_MONITORING_TYPE=${AKS_MONITORING_TYPE:-managed}
 
 # Detect xKS distro
 function detect_k8s_distro() {

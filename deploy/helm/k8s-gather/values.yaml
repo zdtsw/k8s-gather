@@ -5,7 +5,7 @@
 # Container image configuration
 image:
   repository: quay.io/wenzhou/k8s-gather
-  tag: v1.1.0
+  tag: v1.2.0-rc1
   pullPolicy: IfNotPresent
 
 # Namespace configuration
@@ -50,15 +50,19 @@ pod:
     # routeNamespace: "openshift-ingress"  # OCP only
     # kuadrantNamespace: "kuadrant-system"  # OCP only
 
+    enableMonitoring: true
+    # Monitoring configuration (only applies when enableMonitoring=true)
+    # monitoringNamespace: "monitoring"  # Prometheus/Grafana namespace (self-hosted monitoring)
+    # aksMonitoringType: "managed"  # AKS only: "managed" (Azure Managed Prometheus) or "self-hosted" (kube-prometheus-stack)
+
     # Log collection time filters
     # mustGatherSince: "1h"
     # mustGatherSinceTime: ""  # RFC3339 format
 
 # Use Job instead of Pod for better automation support
 useJob: true
-
 job:
   name: k8s-gather-job
   # Auto-cleanup completed job after specified seconds (optional)
   # Uncomment to enable automatic deletion after job completes
-  # ttlSecondsAfterFinished: 3600  # Clean up Job 1 hour after completion
+  ttlSecondsAfterFinished: 600  # Clean up Job 10 min after completion
