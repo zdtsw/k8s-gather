@@ -4,11 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       image_version:
-        description: 'Image version - must start with v (e.g., v1.2.0, v1.2.0-rc1)'
-        required: true
-        type: string
-      chart_version:
-        description: 'Helm chart version - no v prefix (e.g., 1.2.0, 1.2.0-rc1)'
+        description: 'Version - without v prefix (e.g., 1.2.0, 1.2.0-rc1), used for both Helm chart version and image tag (with v prefix)'
         required: true
         type: string
 
@@ -16,27 +12,143 @@ jobs:
   release:
     name: Build and Push to Quay.io
     runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Required for creating releases
+      packages: write  # Optional: if pushing to GHCR in future
     env:
       QUAY_USERNAME: wenzhou
     steps:
-      - name: Validate inputs
+      - name: Validate and set versions
+        id: versions
         run: |
           if [ -z "${{ inputs.image_version }}" ]; then
             echo "Error: image_version cannot be empty"
             exit 1
           fi
-          if [ -z "${{ inputs.chart_version }}" ]; then
-            echo "Error: chart_version cannot be empty"
+
+          # Validate image_version does NOT start with 'v'
+          if [[ "${{ inputs.image_version }}" =~ ^v ]]; then
+            echo "Error: image_version must NOT start with 'v' (e.g., 1.2.0, 1.2.0-rc1)"
             exit 1
           fi
+
+          # Set chart version (same as input)
+          CHART_VERSION="${{ inputs.image_version }}"
+
+          # Add 'v' prefix for image tag and git tag
+          IMAGE_TAG="v${{ inputs.image_version }}"
+
+          echo "chart_version=$CHART_VERSION" >> $GITHUB_OUTPUT
+          echo "image_tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+          echo "✓ Version validation passed"
+          echo "  Input version: ${{ inputs.image_version }}"
+          echo "  Chart version: $CHART_VERSION"
+          echo "  Image tag: $IMAGE_TAG"
 
       - name: Checkout code
         uses: actions/checkout@v6
 
+      - name: Verify version consistency
+        run: |
+          echo "Checking version consistency across repository files..."
+
+          EXPECTED_IMAGE_TAG="${{ steps.versions.outputs.image_tag }}"
+          EXPECTED_CHART_VERSION="${{ steps.versions.outputs.chart_version }}"
+
+          ERRORS=0
+
+          # Check values.yaml image tag
+          VALUES_TAG=$(grep "^  tag:" deploy/helm/k8s-gather/values.yaml | awk '{print $2}')
+          if [ "$VALUES_TAG" != "$EXPECTED_IMAGE_TAG" ]; then
+            echo "❌ ERROR: values.yaml image tag mismatch!"
+            echo "   Expected: $EXPECTED_IMAGE_TAG"
+            echo "   Found:    $VALUES_TAG"
+            ERRORS=$((ERRORS + 1))
+          else
+            echo "✓ values.yaml image tag: $VALUES_TAG"
+          fi
+
+          # Check Chart.yaml version
+          CHART_VERSION=$(grep "^version:" deploy/helm/k8s-gather/Chart.yaml | awk '{print $2}')
+          if [ "$CHART_VERSION" != "$EXPECTED_CHART_VERSION" ]; then
+            echo "❌ ERROR: Chart.yaml version mismatch!"
+            echo "   Expected: $EXPECTED_CHART_VERSION"
+            echo "   Found:    $CHART_VERSION"
+            ERRORS=$((ERRORS + 1))
+          else
+            echo "✓ Chart.yaml version: $CHART_VERSION"
+          fi
+
+          # Check Chart.yaml appVersion
+          APP_VERSION=$(grep "^appVersion:" deploy/helm/k8s-gather/Chart.yaml | awk '{print $2}' | tr -d '"')
+          if [ "$APP_VERSION" != "$EXPECTED_CHART_VERSION" ]; then
+            echo "❌ ERROR: Chart.yaml appVersion mismatch!"
+            echo "   Expected: $EXPECTED_CHART_VERSION"
+            echo "   Found:    $APP_VERSION"
+            ERRORS=$((ERRORS + 1))
+          else
+            echo "✓ Chart.yaml appVersion: $APP_VERSION"
+          fi
+
+          # Check Makefile IMG_VERSION
+          MAKEFILE_VERSION=$(grep "^IMG_VERSION" Makefile | awk -F'= ' '{print $2}')
+          if [ "$MAKEFILE_VERSION" != "$EXPECTED_IMAGE_TAG" ]; then
+            echo "❌ ERROR: Makefile IMG_VERSION mismatch!"
+            echo "   Expected: $EXPECTED_IMAGE_TAG"
+            echo "   Found:    $MAKEFILE_VERSION"
+            ERRORS=$((ERRORS + 1))
+          else
+            echo "✓ Makefile IMG_VERSION: $MAKEFILE_VERSION"
+          fi
+
+          # Check deploy/manifests/job.yaml image
+          JOB_IMAGE_TAG=$(grep "image: quay.io/wenzhou/k8s-gather:" deploy/manifests/job.yaml | awk -F':' '{print $3}')
+          if [ "$JOB_IMAGE_TAG" != "$EXPECTED_IMAGE_TAG" ]; then
+            echo "❌ ERROR: deploy/manifests/job.yaml image tag mismatch!"
+            echo "   Expected: $EXPECTED_IMAGE_TAG"
+            echo "   Found:    $JOB_IMAGE_TAG"
+            ERRORS=$((ERRORS + 1))
+          else
+            echo "✓ deploy/manifests/job.yaml image tag: $JOB_IMAGE_TAG"
+          fi
+
+          # Check README.md Quick Start Helm version
+          README_HELM_VERSION=$(grep "# Install from quay registry" -A1 README.md | grep -- "--version" | sed 's/.*--version \([^ ]*\).*/\1/')
+          if [ "$README_HELM_VERSION" != "$EXPECTED_CHART_VERSION" ]; then
+            echo "❌ ERROR: README.md Quick Start Helm version mismatch!"
+            echo "   Expected: $EXPECTED_CHART_VERSION"
+            echo "   Found:    $README_HELM_VERSION"
+            ERRORS=$((ERRORS + 1))
+          else
+            echo "✓ README.md Quick Start Helm version: $README_HELM_VERSION"
+          fi
+
+          # Check README.md IMG_VERSION default
+          README_IMG_VERSION=$(grep "IMG_VERSION.*Image tag.*default:" README.md | head -1 | sed 's/.*default: `\(v[^`]*\)`.*/\1/')
+          if [ "$README_IMG_VERSION" != "$EXPECTED_IMAGE_TAG" ]; then
+            echo "❌ ERROR: README.md IMG_VERSION default mismatch!"
+            echo "   Expected: $EXPECTED_IMAGE_TAG"
+            echo "   Found:    $README_IMG_VERSION"
+            ERRORS=$((ERRORS + 1))
+          else
+            echo "✓ README.md IMG_VERSION default: $README_IMG_VERSION"
+          fi
+
+          if [ $ERRORS -gt 0 ]; then
+            echo ""
+            echo "❌ Version consistency check failed with $ERRORS error(s)!"
+            echo "Please update all version references to match $EXPECTED_CHART_VERSION (chart) and $EXPECTED_IMAGE_TAG (image) before releasing."
+            exit 1
+          fi
+
+          echo ""
+          echo "✅ All version references are consistent!"
+
       - name: Update Helm chart version
         run: |
           # Update chart version
-          sed -i 's/^version:.*/version: ${{ inputs.chart_version }}/' deploy/helm/k8s-gather/Chart.yaml
+          sed -i 's/^version:.*/version: ${{ steps.versions.outputs.chart_version }}/' deploy/helm/k8s-gather/Chart.yaml
 
           # Display the updated Chart.yaml
           echo "=== Chart.yaml ==="
@@ -59,7 +171,7 @@ jobs:
         env:
           IMAGE_BUILDER: docker
           IMG: quay.io/${{ env.QUAY_USERNAME }}/k8s-gather
-          IMG_VERSION: ${{ inputs.image_version }}
+          IMG_VERSION: ${{ steps.versions.outputs.image_tag }}
           HELM_REGISTRY: oci://quay.io/${{ env.QUAY_USERNAME }}/charts
 
       - name: Package Helm chart for release to get tar ball
@@ -68,17 +180,18 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ inputs.image_version }}
-          name: Release ${{ inputs.image_version }}
+          tag_name: ${{ steps.versions.outputs.image_tag }}
+          name: Release ${{ steps.versions.outputs.image_tag }}
+          generate_release_notes: true
           body: |
-            ## Release ${{ inputs.image_version }}
+            ## Release ${{ steps.versions.outputs.image_tag }}
 
-            - **Image**: `quay.io/${{ env.QUAY_USERNAME }}/k8s-gather:${{ inputs.image_version }}`
-            - **Helm Chart**: `oci://quay.io/${{ env.QUAY_USERNAME }}/charts/k8s-gather:${{ inputs.chart_version }}`
+            - **Image**: `quay.io/${{ env.QUAY_USERNAME }}/k8s-gather:${{ steps.versions.outputs.image_tag }}`
+            - **Helm Chart**: `oci://quay.io/${{ env.QUAY_USERNAME }}/charts/k8s-gather:${{ steps.versions.outputs.chart_version }}`
 
             ### Installation
             ```bash
-            helm install k8s-gather oci://quay.io/${{ env.QUAY_USERNAME }}/charts/k8s-gather --version ${{ inputs.chart_version }}
+            helm install k8s-gather oci://quay.io/${{ env.QUAY_USERNAME }}/charts/k8s-gather --version ${{ steps.versions.outputs.chart_version }}
             ```
           files: k8s-gather-*.tgz
           draft: true
