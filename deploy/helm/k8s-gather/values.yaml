@@ -61,9 +61,8 @@ pod:
 
 # Use Job instead of Pod for better automation support
 useJob: true
-
 job:
   name: k8s-gather-job
   # Auto-cleanup completed job after specified seconds (optional)
   # Uncomment to enable automatic deletion after job completes
-  # ttlSecondsAfterFinished: 3600  # Clean up Job 1 hour after completion
+  ttlSecondsAfterFinished: 600  # Clean up Job 10 min after completion

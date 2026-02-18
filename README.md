@@ -31,12 +31,20 @@ kubectl cp k8s-gather/$POD:/must-gather ./my-k8s-gather
 helm uninstall k8s-gather -n k8s-gather && kubectl delete namespace k8s-gather
 ```
 
+**Re-run must-gather:**
+```bash
+# Jobs are immutable - delete first, then upgrade
+kubectl delete job k8s-gather-job -n k8s-gather
+helm upgrade k8s-gather oci://quay.io/wenzhou/charts/k8s-gather -n k8s-gather
+
+# Or wait for TTL auto-cleanup (10 minutes after completion), then upgrade
+# TTL is enabled by default: job.ttlSecondsAfterFinished=600
+```
+
 **Upgrade to a new version:**
 ```bash
-# Default (Job): delete job first, then upgrade (Jobs are immutable)
-kubectl delete job k8s-gather-job -n k8s-gather && \
-helm upgrade k8s-gather oci://quay.io/wenzhou/charts/k8s-gather --version <new-version> -n k8s-gather
-# If using Pod (--set useJob=false): upgrade in place
+# Delete job first, then upgrade (Jobs are immutable)
+kubectl delete job k8s-gather-job -n k8s-gather
 helm upgrade k8s-gather oci://quay.io/wenzhou/charts/k8s-gather --version <new-version> -n k8s-gather
 ```
 
@@ -148,7 +156,7 @@ make image-build KUBECTL_VERSION=v1.32.0 UPSTREAM_COMMIT=<commit-hash>
 
 **Available build variables:**
 - `IMG` - Container image name (default: `quay.io/$USER/k8s-gather`)
-- `IMG_VERSION` - Image tag (default: `v1.1.0`)
+- `IMG_VERSION` - Image tag (default: `v1.2.0-rc1`)
 - `IMAGE_BUILDER` - Builder tool: `podman` or `docker` (default: `podman`)
 - `KUBECTL_VERSION` - kubectl version (default: `v1.31.4`)
 - `UPSTREAM_COMMIT` - [must-gather](https://github.com/openshift/must-gather) commit hash (default: `bd9f061`)
@@ -160,7 +168,29 @@ make image-build KUBECTL_VERSION=v1.32.0 UPSTREAM_COMMIT=<commit-hash>
 make helm-push HELM_REGISTRY=oci://quay.io/$USER/charts
 ```
 
-### Deploy from local filesystem
+### Run must-gather locally
+
+**Using Makefile (recommended):**
+```bash
+# Complete workflow: run, wait, and get results automatically
+make gather-all
+
+# Or step by step
+make run-gather      # Deploy/upgrade the job
+make wait-gather     # Wait for completion
+make get-results     # Copy results locally
+make cleanup-gather  # Manual cleanup at once (optional - wait for TTL auto-cleans after 10 min)
+
+# Customize with variables
+make gather-all IMG=quay.io/$USER/k8s-gather IMG_VERSION=dev NAMESPACE=my-namespace
+```
+
+**Available Makefile variables:**
+- `IMG` - Container image name (default: `quay.io/$USER/k8s-gather`)
+- `IMG_VERSION` - Image tag (default: `v1.2.0-rc1`)
+- `NAMESPACE` - Kubernetes namespace (default: `k8s-gather`)
+- `RELEASE_NAME` - Helm release name (default: `k8s-gather`)
+- `OUTPUT_DIR` - Output directory for results (default: `./my-k8s-gather-YYYYMMDD-HHMMSS`)
 
 **Using Kustomize:**
 ```bash
@@ -172,16 +202,26 @@ kubectl cp k8s-gather/$POD:/must-gather ./my-k8s-gather
 kubectl delete -k deploy/manifests/
 ```
 
-**Using Helm:**
+**Using Helm directly:**
 ```bash
-# Deploy from local chart directory
+# First run: install
 helm install k8s-gather ./deploy/helm/k8s-gather -n k8s-gather --create-namespace \
   --set image.repository=quay.io/$USER/k8s-gather --set image.tag=dev
+
+# Re-run: delete job first (Jobs are immutable), then upgrade
+kubectl delete job k8s-gather-job -n k8s-gather
+helm upgrade k8s-gather ./deploy/helm/k8s-gather -n k8s-gather
+
+# Get results
 kubectl wait --for=condition=complete job/k8s-gather-job -n k8s-gather --timeout=5m
 POD=$(kubectl get pods -n k8s-gather -l job-name=k8s-gather-job -o jsonpath='{.items[0].metadata.name}')
 kubectl cp k8s-gather/$POD:/must-gather ./my-k8s-gather
+
+# Cleanup (or wait for TTL auto-cleanup after 10 minutes)
 helm uninstall k8s-gather -n k8s-gather
 ```
+
+> **Note:** Jobs have TTL enabled (`ttlSecondsAfterFinished: 600`) for automatic cleanup 10 minutes after completion. You can override this with `--set job.ttlSecondsAfterFinished=<seconds>`.
 
 ## Permissions
 
