@@ -1,0 +1,87 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_version:
+        description: 'Image version - must start with v (e.g., v1.2.0, v1.2.0-rc1)'
+        required: true
+        type: string
+      chart_version:
+        description: 'Helm chart version - no v prefix (e.g., 1.2.0, 1.2.0-rc1)'
+        required: true
+        type: string
+
+jobs:
+  release:
+    name: Build and Push to Quay.io
+    runs-on: ubuntu-latest
+    env:
+      QUAY_USERNAME: wenzhou
+    steps:
+      - name: Validate inputs
+        run: |
+          if [ -z "${{ inputs.image_version }}" ]; then
+            echo "Error: image_version cannot be empty"
+            exit 1
+          fi
+          if [ -z "${{ inputs.chart_version }}" ]; then
+            echo "Error: chart_version cannot be empty"
+            exit 1
+          fi
+
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Update Helm chart version
+        run: |
+          # Update chart version
+          sed -i 's/^version:.*/version: ${{ inputs.chart_version }}/' deploy/helm/k8s-gather/Chart.yaml
+
+          # Display the updated Chart.yaml
+          echo "=== Chart.yaml ==="
+          cat deploy/helm/k8s-gather/Chart.yaml
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4.3.0
+        with:
+          version: 'latest'
+
+      - name: Log in to Quay.io
+        uses: docker/login-action@v3
+        with:
+          registry: quay.io
+          username: ${{ env.QUAY_USERNAME }}
+          password: ${{ secrets.QUAY_PASSWORD }}
+
+      - name: Build and push image and Helm chart
+        run: make build-and-push
+        env:
+          IMAGE_BUILDER: docker
+          IMG: quay.io/${{ env.QUAY_USERNAME }}/k8s-gather
+          IMG_VERSION: ${{ inputs.image_version }}
+          HELM_REGISTRY: oci://quay.io/${{ env.QUAY_USERNAME }}/charts
+
+      - name: Package Helm chart for release to get tar ball
+        run: helm package deploy/helm/k8s-gather
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.image_version }}
+          name: Release ${{ inputs.image_version }}
+          body: |
+            ## Release ${{ inputs.image_version }}
+
+            - **Image**: `quay.io/${{ env.QUAY_USERNAME }}/k8s-gather:${{ inputs.image_version }}`
+            - **Helm Chart**: `oci://quay.io/${{ env.QUAY_USERNAME }}/charts/k8s-gather:${{ inputs.chart_version }}`
+
+            ### Installation
+            ```bash
+            helm install k8s-gather oci://quay.io/${{ env.QUAY_USERNAME }}/charts/k8s-gather --version ${{ inputs.chart_version }}
+            ```
+          files: k8s-gather-*.tgz
+          draft: true
+          prerelease: ${{ contains(inputs.image_version, 'rc') || contains(inputs.image_version, 'beta') || contains(inputs.image_version, 'alpha') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
