@@ -1,5 +1,5 @@
 IMG ?= quay.io/$(USER)/k8s-gather
-IMG_VERSION ?= v1.1.0
+IMG_VERSION ?= v1.2.0-rc1
 IMAGE_BUILDER ?= podman
 KUBECTL_VERSION ?= v1.31.4
 UPSTREAM_COMMIT ?= bd9f06199d1e35685107d2df4a3f62b3bd62d2f8
@@ -14,10 +14,12 @@ image-push: image-build
 	${IMAGE_BUILDER} push ${IMG}:${IMG_VERSION}
 
 helm-package:
+	sed -i 's/^appVersion:.*/appVersion: "$(IMG_VERSION:v%=%)"/' ${HELM_CHART_PATH}/Chart.yaml
+	sed -i 's/  tag:.*/  tag: $(IMG_VERSION)/' ${HELM_CHART_PATH}/values.yaml
 	helm package ${HELM_CHART_PATH}
 
 helm-push: helm-package
 	helm push k8s-gather-*.tgz ${HELM_REGISTRY}
 	rm -f k8s-gather-*.tgz
 
-build-and-push: image-build image-push helm-package helm-push
+build-and-push: image-push helm-push
