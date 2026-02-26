@@ -16,17 +16,17 @@ $KUBECTL cluster-info > "${dest_dir}/cluster-info.txt" 2>/dev/null
 # API resources list (not collected by gather)
 $KUBECTL api-resources > "${dest_dir}/api-resources.txt" 2>/dev/null
 
-# Collect detailed node information (GPU allocation, pod usage, etc.)
+# Collect detailed node information
 node_dir="${dest_dir}/nodes"
 mkdir -p "${node_dir}"
 
-echo "Collecting detailed node information (GPU allocation, pod usage)..."
+echo "Collecting detailed node information..."
 
 for node in $($KUBECTL get nodes -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do
     node_subdir="${node_dir}/${node}"
     mkdir -p "${node_subdir}"
 
-    $KUBECTL describe node "$node" > "${node_subdir}/node.yaml" 2>/dev/null
+    $KUBECTL get node "$node" -o yaml > "${node_subdir}/node.yaml" 2>/dev/null
 done
 
 echo "Additional cluster information collected"

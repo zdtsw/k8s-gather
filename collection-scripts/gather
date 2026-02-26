@@ -7,9 +7,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Source common.sh which loads functions.sh
 source "$SCRIPT_DIR/common.sh"
 
-# for new flag to get since and since-time
-get_log_collection_args
-
 # Create output directory
 mkdir -p "$DST_DIR"
 
@@ -76,7 +73,7 @@ if [[ -n "${ROUTE_NS}" ]]; then
 fi
 
 # Collect cluster-scoped resources
-# Note: cluster.sh collects node information (kubectl describe) which is more valuable for debugging
+# Note: cluster.sh collects node information which is more valuable for debugging
 resources=(
   # Core k8s
   "persistentvolumes"
@@ -118,7 +115,7 @@ else
     [[ "${ENABLE_MONITORING}" == "true" ]] && $SCRIPT_DIR/component/monitoring.sh
 fi
 
-# Cluster information (cluster-info, API resources, node describe with GPU allocation)
+# Cluster information
 $SCRIPT_DIR/cluster.sh &
 
 # Dependency operators (always collected)

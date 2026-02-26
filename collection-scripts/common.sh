@@ -93,3 +93,8 @@ if [ -f "${FUNCTIONS_FILE}" ]; then
     # shellcheck disable=SC1090
     source "${FUNCTIONS_FILE}"
 fi
+
+# Initialize log collection arguments for all kubectl logs commands
+# Respects MUST_GATHER_SINCE and MUST_GATHER_SINCE_TIME environment variables
+export log_collection_args=""
+get_log_collection_args

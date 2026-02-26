@@ -1,14 +1,11 @@
 #!/bin/bash
 # Monitoring component gathering script - collects Prometheus Operator monitoring resources
-# shellcheck disable=SC1091
+# shellcheck disable=SC1091,SC2154
 source "$(dirname "$0")/../common.sh"
 
 # AKS monitoring type: "managed" for Azure Managed Prometheus (AMP), "self-hosted" for kube-prometheus-stack
 # Default to self-hosted when not specified
 AKS_MONITORING_TYPE=${AKS_MONITORING_TYPE:-self-hosted}
-
-# Initialize log collection args (will be set by get_log_collection_args function)
-log_collection_args=""
 
 # Collect monitoring based on deployment type
 if [[ "${K8S_DISTRO}" == "aks" && "${AKS_MONITORING_TYPE}" == "managed" ]]; then
@@ -19,9 +16,6 @@ if [[ "${K8S_DISTRO}" == "aks" && "${AKS_MONITORING_TYPE}" == "managed" ]]; then
 
     echo "INFO: Collecting Azure Managed Prometheus (ama-metrics) pods and logs from ${AMA_NS}"
 
-    # Get log collection arguments (sets global log_collection_args variable)
-    get_log_collection_args
-
     # Collect all ama-metrics pods with logs (from DaemonSet and ReplicaSets)
     for pod in $($KUBECTL get pods -n "${AMA_NS}" -o name 2>/dev/null | grep '^pod/ama-metrics' | sed 's|^pod/||'); do
         pod_dir="${AMA_DIR}/pods/${pod}"
@@ -29,7 +23,6 @@ if [[ "${K8S_DISTRO}" == "aks" && "${AKS_MONITORING_TYPE}" == "managed" ]]; then
 
         # Get pod yaml and description
         $KUBECTL get pod "$pod" -n "${AMA_NS}" -o yaml > "${pod_dir}/${pod}.yaml" 2>/dev/null
-        $KUBECTL describe pod "$pod" -n "${AMA_NS}" > "${pod_dir}/${pod}-describe.txt" 2>/dev/null
 
         # Get logs for each container
         for container in $($KUBECTL get pod "$pod" -n "${AMA_NS}" -o jsonpath='{.spec.containers[*].name}' 2>/dev/null); do
