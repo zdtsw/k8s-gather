@@ -21,6 +21,10 @@ spec:
           value: "false"
         - name: ENABLE_KUBERAY
           value: "false"
+        - name: ENABLE_MAAS
+          value: "false"
+        - name: ENABLE_WVA
+          value: "false"
         # - name: OPERATOR_NAMESPACE
         #   value: "openshift-operators"
         # - name: APPLICATIONS_NAMESPACE

@@ -44,12 +44,16 @@ $( if [[ "${ENABLE_ALL}" == "true" ]]; then
     echo "    - Kueue"
     echo "    - KubeRay"
     echo "    - Monitoring"
+    echo "    - MaaS"
+    echo "    - WVA"
 else
     echo "  Collecting enabled components:"
     [[ "${ENABLE_SERVING}" == "true" ]] && echo "    - KServe/LLM-D (enabled)" || echo "    - KServe/LLM-D (disabled, skipped)"
     [[ "${ENABLE_KUEUE}" == "true" ]] && echo "    - Kueue (enabled)" || echo "    - Kueue (disabled, skipped)"
     [[ "${ENABLE_KUBERAY}" == "true" ]] && echo "    - KubeRay (enabled)" || echo "    - KubeRay (disabled, skipped)"
     [[ "${ENABLE_MONITORING}" == "true" ]] && echo "    - Monitoring (enabled)" || echo "    - Monitoring (disabled, skipped)"
+    [[ "${ENABLE_MAAS}" == "true" ]] && echo "    - MaaS (enabled)" || echo "    - MaaS (disabled, skipped)"
+    [[ "${ENABLE_WVA}" == "true" ]] && echo "    - WVA (enabled)" || echo "    - WVA (disabled, skipped)"
 fi )
 
 Namespaces:
@@ -72,9 +76,9 @@ if [[ -n "${ROUTE_NS}" ]]; then
 fi
 
 # Collect cluster-scoped resources
+# Note: cluster.sh collects node information (kubectl describe) which is more valuable for debugging
 resources=(
-  # Core k8s (v1)
-  "nodes"
+  # Core k8s
   "persistentvolumes"
   "clusterroles.rbac.authorization.k8s.io"
   "clusterrolebindings.rbac.authorization.k8s.io"
@@ -101,14 +105,21 @@ if [[ "${ENABLE_ALL}" == "true" ]]; then
     $SCRIPT_DIR/component/llm-d.sh &
     $SCRIPT_DIR/component/kuberay.sh &
     $SCRIPT_DIR/component/kueue.sh &
+    $SCRIPT_DIR/component/maas.sh &
+    $SCRIPT_DIR/component/wva.sh &
     $SCRIPT_DIR/component/monitoring.sh
 else
     # Collect only enabled components
     [[ "${ENABLE_SERVING}" == "true" ]] && $SCRIPT_DIR/component/llm-d.sh &
     [[ "${ENABLE_KUBERAY}" == "true" ]] && $SCRIPT_DIR/component/kuberay.sh &
     [[ "${ENABLE_KUEUE}" == "true" ]] && $SCRIPT_DIR/component/kueue.sh &
+    [[ "${ENABLE_MAAS}" == "true" ]] && $SCRIPT_DIR/component/maas.sh &
+    [[ "${ENABLE_WVA}" == "true" ]] && $SCRIPT_DIR/component/wva.sh &
     [[ "${ENABLE_MONITORING}" == "true" ]] && $SCRIPT_DIR/component/monitoring.sh
 fi
+
+# Cluster information (cluster-info, API resources, node describe with GPU allocation)
+$SCRIPT_DIR/cluster.sh &
 
 # Dependency operators (always collected)
 $SCRIPT_DIR/deps/cert-manager.sh &

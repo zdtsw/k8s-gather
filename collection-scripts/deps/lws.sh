@@ -7,14 +7,9 @@ source "$(dirname "$0")/../common.sh"
 # https://github.com/kubernetes-sigs/lws
 resources=(
     "leaderworkersets.leaderworkerset.x-k8s.io"
+    "leaderworkersetoperators.operator.openshift.io"
 )
 
-# OpenShift-specific LWS operator (only on OCP)
-if [[ "${K8S_DISTRO}" == "ocp" ]]; then
-    resources+=(
-        "leaderworkersetoperators.operator.openshift.io"
-    )
-fi
 
 # Get all namespaces where these resources exist
 nslist=$(get_all_namespace "${resources[@]}")

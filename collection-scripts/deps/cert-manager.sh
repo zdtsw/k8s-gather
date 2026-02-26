@@ -5,13 +5,16 @@ source "$(dirname "$0")/../common.sh"
 
 # cert-manager core resources
 # https://cert-manager.io/
+# All are collected but only certain are in use
 resources=(
-    "certificates.cert-manager.io"
+    "certmanagers.operator.openshift.io"
     "issuers.cert-manager.io"
     "clusterissuers.cert-manager.io"
+    "certificates.cert-manager.io"
     "certificaterequests.cert-manager.io"
     "orders.acme.cert-manager.io"
     "challenges.acme.cert-manager.io"
+    "istiocsrs.operator.openshift.io"
 )
 
 # Get all namespaces where these resources exist

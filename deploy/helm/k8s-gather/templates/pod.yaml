@@ -20,6 +20,10 @@ spec:
       value: {{ .Values.pod.env.enableKueue | quote }}
     - name: ENABLE_KUBERAY
       value: {{ .Values.pod.env.enableKuberay | quote }}
+    - name: ENABLE_MAAS
+      value: {{ .Values.pod.env.enableMaas | quote }}
+    - name: ENABLE_WVA
+      value: {{ .Values.pod.env.enableWva | quote }}
     - name: ENABLE_MONITORING
       value: {{ .Values.pod.env.enableMonitoring | quote }}
     {{- if .Values.pod.env.operatorNamespace }}
