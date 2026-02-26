@@ -97,7 +97,6 @@ function run_k8sgather() {
     local resources=("${DEFAULT_RESOURCES[@]}" "$@")
 
     for ns in $namespaces; do
-        kubectl_inspect "namespace/$ns" || echo "Error inspecting namespace/$ns"
         # Inspect custom resources in this namespace
         for resource in "${resources[@]}"; do
             kubectl_inspect "$resource" "$ns" 2>/dev/null
