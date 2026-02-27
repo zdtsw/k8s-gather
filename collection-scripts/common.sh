@@ -28,17 +28,28 @@ export AKS_MONITORING_TYPE=${AKS_MONITORING_TYPE:-managed}
 # Detect xKS distro
 function detect_k8s_distro() {
     local distro="other" # the rest from ocp, cks and aks for now.
-    local kernel_version os_image provider_id
 
-    kernel_version=$($KUBECTL get nodes -o jsonpath='{.items[0].status.nodeInfo.kernelVersion}' 2>/dev/null) # for CKS
-    os_image=$($KUBECTL get nodes -o jsonpath='{.items[0].status.nodeInfo.osImage}' 2>/dev/null)  # for OCP
-    provider_id=$($KUBECTL get nodes -o jsonpath='{.items[0].spec.providerID}' 2>/dev/null) # for AKS
+    # Determine which command to use (take oc proceed at this stage does not really matter which one to use)
+    local cmd
+    if command -v oc &> /dev/null; then
+        cmd="oc"
+    elif command -v kubectl &> /dev/null; then
+        cmd="kubectl"
+    else # This should never get hit
+        echo "ERROR: Neither 'oc' nor 'kubectl' command found. Cannot proceed." >&2
+        exit 1
+    fi
+
+    local kernel_version os_image provider_id
+    kernel_version=$(${cmd} get nodes -o jsonpath='{.items[0].status.nodeInfo.kernelVersion}' 2>/dev/null) # for CKS
+    os_image=$(${cmd} get nodes -o jsonpath='{.items[0].status.nodeInfo.osImage}' 2>/dev/null)  # for OCP
+    provider_id=$(${cmd} get nodes -o jsonpath='{.items[0].spec.providerID}' 2>/dev/null) # for AKS
 
     # Check for OpenShift first (catches ROSA and ARO)
     if echo "$os_image" | grep -q "Red Hat Enterprise Linux CoreOS"; then
         distro="ocp"
     # Check API resources for OpenShift (fallback)
-    elif $KUBECTL api-resources 2>/dev/null | grep -q "route.openshift.io"; then
+    elif ${cmd} api-resources 2>/dev/null | grep -q "route.openshift.io"; then
         distro="ocp"
     # Check kernel version for CoreWeave
     elif echo "$kernel_version" | grep -qi "coreweave"; then

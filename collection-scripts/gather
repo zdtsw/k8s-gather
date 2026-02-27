@@ -72,29 +72,9 @@ if [[ -n "${ROUTE_NS}" ]]; then
     kubectl_inspect "namespace/$ROUTE_NS" || echo "Namespace ${ROUTE_NS} not found"
 fi
 
-# Collect cluster-scoped resources
-# Note: cluster.sh collects node information which is more valuable for debugging
-resources=(
-  # Core k8s
-  "persistentvolumes"
-  "clusterroles.rbac.authorization.k8s.io"
-  "clusterrolebindings.rbac.authorization.k8s.io"
-  "storageclasses.storage.k8s.io"
-  "customresourcedefinitions.apiextensions.k8s.io"
-  "priorityclasses.scheduling.k8s.io"
-  # Admission webhooks
-  "mutatingwebhookconfigurations.admissionregistration.k8s.io"
-  "validatingwebhookconfigurations.admissionregistration.k8s.io"
-  "validatingadmissionpolicies.admissionregistration.k8s.io"
-  "validatingadmissionpolicybindings.admissionregistration.k8s.io"
-  # ODH/RHOAI
-  "dscinitializations.dscinitialization.opendatahub.io"
-  "datascienceclusters.datasciencecluster.opendatahub.io"
-  "kserves.components.platform.opendatahub.io"
-  "kueues.components.platform.opendatahub.io"
-  "rays.components.platform.opendatahub.io"
-)
-get_operator_resource "${resources[@]}"
+# Note: Cluster-scoped resources are auto-discovered by cluster.sh
+# This includes: PVs, StorageClasses, CRDs, ClusterRoles, ClusterRoleBindings,
+# MutatingWebhookConfigurations, ValidatingWebhookConfigurations, etc.
 
 # Component collection
 if [[ "${ENABLE_ALL}" == "true" ]]; then
@@ -119,9 +99,13 @@ fi
 $SCRIPT_DIR/cluster.sh &
 
 # Dependency operators (always collected)
-$SCRIPT_DIR/deps/cert-manager.sh &
-$SCRIPT_DIR/deps/sail.sh &
-$SCRIPT_DIR/deps/lws.sh &
+echo "Collecting llm-d dependencies (operators)..."
+for script in "$SCRIPT_DIR/deps"/*.sh; do
+    if [[ -f "$script" ]]; then
+        echo "  Running $(basename "$script")..."
+        bash "$script" &
+    fi
+done
 
 # Infrastructure components from upstream
 $SCRIPT_DIR/gather_istio &

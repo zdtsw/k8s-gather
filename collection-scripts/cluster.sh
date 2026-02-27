@@ -11,7 +11,8 @@ mkdir -p "${dest_dir}"
 echo "Collecting cluster information..."
 
 # Cluster info (not collected by gather)
-$KUBECTL cluster-info > "${dest_dir}/cluster-info.txt" 2>/dev/null
+# Strip ANSI color codes using sed for cleaner text output
+$KUBECTL cluster-info 2>/dev/null | sed 's/\x1b\[[0-9;]*m//g' > "${dest_dir}/cluster-info.txt"
 
 # API resources list (not collected by gather)
 $KUBECTL api-resources > "${dest_dir}/api-resources.txt" 2>/dev/null
@@ -28,5 +29,8 @@ for node in $($KUBECTL get nodes -o jsonpath='{.items[*].metadata.name}' 2>/dev/
 
     $KUBECTL get node "$node" -o yaml > "${node_subdir}/node.yaml" 2>/dev/null
 done
+
+# Auto-discover and collect all cluster-scoped resources
+collect_cluster_scoped_resources
 
 echo "Additional cluster information collected"

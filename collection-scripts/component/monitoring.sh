@@ -21,7 +21,7 @@ if [[ "${K8S_DISTRO}" == "aks" && "${AKS_MONITORING_TYPE}" == "managed" ]]; then
         pod_dir="${AMA_DIR}/pods/${pod}"
         mkdir -p "${pod_dir}"
 
-        # Get pod yaml and description
+        # Get pod yaml
         $KUBECTL get pod "$pod" -n "${AMA_NS}" -o yaml > "${pod_dir}/${pod}.yaml" 2>/dev/null
 
         # Get logs for each container
