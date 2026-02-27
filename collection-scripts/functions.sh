@@ -21,6 +21,7 @@ function kubectl_inspect() {
     fi
 
     if [[ "$resource" == "namespace" ]] && [[ -n "$namespace" ]]; then
+        echo "Gathered data for ns/${namespace}"
         local ns_dir="${dest_dir}/namespaces/${namespace}"
         mkdir -p "${ns_dir}/pods" "${ns_dir}/core" "${ns_dir}/apps" "${ns_dir}/events"
 
@@ -64,7 +65,6 @@ function kubectl_inspect() {
             local pod_dir="${ns_dir}/pods/${pod}"
             mkdir -p "${pod_dir}"
             $KUBECTL get pod "$pod" -n "$namespace" -o yaml > "${pod_dir}/${pod}.yaml" 2>/dev/null
-            $KUBECTL describe pod "$pod" -n "$namespace" > "${pod_dir}/${pod}-describe.txt" 2>/dev/null
 
             # Get logs for each container
             for container in $($KUBECTL get pod "$pod" -n "$namespace" -o jsonpath='{.spec.containers[*].name}' 2>/dev/null); do
@@ -73,8 +73,6 @@ function kubectl_inspect() {
                 $KUBECTL logs "$pod" -n "$namespace" -c "$container" --previous $log_collection_args > "${pod_dir}/${container}/logs/previous.log" 2>/dev/null
             done
         done
-
-        echo "Gathered data for ns/${namespace}"
     elif [[ -n "$namespace" ]]; then
         # Collect specific resource type in namespace
         local res_name="${resource##*/}"  # extract name after last /

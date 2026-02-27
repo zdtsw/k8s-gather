@@ -23,6 +23,14 @@ resources+=(
     "multikueueconfigs.kueue.x-k8s.io"
 )
 
+# OpenShift-specific Kueue operator (only on OCP)
+# https://github.com/openshift/kueue-operator
+if [[ "${K8S_DISTRO}" == "ocp" ]]; then
+    resources+=(
+        "kueues.kueue.openshift.io"
+    )
+fi
+
 nslist=$(get_all_namespace "${resources[@]}")
 
 run_k8sgather "$nslist" "${resources[@]}"

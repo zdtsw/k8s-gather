@@ -8,7 +8,9 @@ source "$(dirname "$0")/../common.sh"
 resources=(
     "istios.sailoperator.io"
     "istiorevisions.sailoperator.io"
-    "istiocnis.sailoperator.io"
+    "istiorevisiontags.sailoperator.io"
+    "istiocnis.sailoperator.io" # we are not using this but we collect it
+    "ztunnels.sailoperator.io"  # we are not using this but we collect it
 )
 
 # Get all namespaces where these resources exist

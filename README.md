@@ -7,7 +7,7 @@ Unlike `oc adm must-gather` which is OpenShift-specific, k8s-gather uses standar
 ## Features
 
 - **Multi-Distribution Support**: Automatically detects and adapts to OpenShift (OCP), CoreWeave (CKS), Azure Kubernetes Service (AKS), and vanilla Kubernetes
-- **Modular Components**: KServe/LLM-D, KubeRay, Kueue with selective collection
+- **Modular Components**: KServe/LLM-D, KubeRay, Kueue, MaaS, Workload Variant Autoscaler with selective collection
 - **Always-On Dependencies**: Automatically collects cert-manager, Istio (Sail Operator), and Leader Worker Set resources
 - **Infrastructure Collection**: Gathers Istio, SR-IOV, and other infrastructure components using upstream must-gather scripts
 - **Distribution-Aware**: Collects OpenShift-specific resources (Routes, Kuadrant) only when on OCP
@@ -49,11 +49,14 @@ helm upgrade k8s-gather oci://quay.io/wenzhou/charts/k8s-gather --version <new-v
 
 **Enable additional components:**
 ```bash
-# All components (KServe/LLM-D + Kueue + KubeRay)
+# All components (KServe/LLM-D + Kueue + KubeRay + MaaS + Workload Variant Autoscaler)
 --set pod.env.enableAll=true
 
 # Specific components
---set pod.env.enableKueue=true --set pod.env.enableKuberay=true
+--set pod.env.enableKueue=true \
+--set pod.env.enableKuberay=true \
+--set pod.env.enableMaas=true \
+--set pod.env.enableWva=true
 ```
 
 > **Prefer Kustomize?** See [Local Development](#local-development) for deployment using [deploy/manifests/](deploy/manifests/).
@@ -71,6 +74,8 @@ Available configuration options:
 | `ENABLE_SERVING` | `true` | Enable KServe/LLM-D collection (when ENABLE_ALL=false) |
 | `ENABLE_KUEUE` | `false` | Enable Kueue collection (when ENABLE_ALL=false) |
 | `ENABLE_KUBERAY` | `false` | Enable KubeRay collection (when ENABLE_ALL=false) |
+| `ENABLE_MAAS` | `false` | Enable MaaS (Model as a Service) collection (when ENABLE_ALL=false) |
+| `ENABLE_WVA` | `false` | Enable WVA (Workload Variant Autoscaler) collection (when ENABLE_ALL=false) |
 | `ENABLE_MONITORING` | `true` | Enable Prometheus Operator monitoring collection |
 | `OPERATOR_NAMESPACE` | *auto-detected* | Operator namespace (opendatahub-operator or rhods-operator, fallback: redhat-ods-operator) |
 | `APPLICATIONS_NAMESPACE` | *auto-mapped* | Application namespace (mapped from operator namespace, or override) |
@@ -85,13 +90,15 @@ Available configuration options:
 ### Components
 
 By default, KServe/LLM-D and monitoring are collected (`ENABLE_SERVING=true`, `ENABLE_MONITORING=true`). You can:
-- Set `ENABLE_ALL=true` to collect all components (KServe/LLM-D, Kueue, KubeRay)
-- Or individually enable components with `ENABLE_KUEUE=true` and/or `ENABLE_KUBERAY=true`
+- Set `ENABLE_ALL=true` to collect all components (KServe/LLM-D, Kueue, KubeRay, MaaS, Workload Variant Autoscaler)
+- Or individually enable components with `ENABLE_KUEUE=true`, `ENABLE_KUBERAY=true`, `ENABLE_MAAS=true`, and/or `ENABLE_WVA=true`
 
 Available components:
 - **KServe/LLM-D** - Model Serving (KServe, LLM-D, Gateway API Inference Extension)
 - **KubeRay** - Ray distributed compute clusters (requires KubeRay operator installed)
 - **Kueue** - Job queueing and workload management (requires Kueue operator installed)
+- **MaaS** - Model as a Service (Kuadrant rate limiting, auth policies, Authorino)
+- **WVA** - Workload Variant Autoscaler (KEDA ScaledObjects, VariantAutoscalings)
 - **Monitoring** - Prometheus Operator resources (ServiceMonitor, PodMonitor, PrometheusRule, etc.)
   - **Self-hosted**: Collects kube-prometheus-stack or OpenShift monitoring resources
   - **AKS Managed**: Collects Azure Managed Prometheus (ama-metrics) pods and logs when `AKS_MONITORING_TYPE=managed`

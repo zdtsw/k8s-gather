@@ -42,6 +42,8 @@ pod:
     enableServing: true
     enableKueue: false
     enableKuberay: false
+    enableMaas: false
+    enableWva: false
 
     # Namespace configuration (auto-detected if not set)
     # operatorNamespace: "openshift-operators"

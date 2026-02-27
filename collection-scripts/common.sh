@@ -17,6 +17,8 @@ export ENABLE_SERVING=${ENABLE_SERVING:-true}
 export ENABLE_KUEUE=${ENABLE_KUEUE:-false}
 export ENABLE_KUBERAY=${ENABLE_KUBERAY:-false}
 export ENABLE_MONITORING=${ENABLE_MONITORING:-true}
+export ENABLE_MAAS=${ENABLE_MAAS:-false}
+export ENABLE_WVA=${ENABLE_WVA:-false}
 
 # AKS monitoring type: "managed" for Azure Managed Prometheus, "self-hosted" for kube-prometheus-stack
 # Only applies when K8S_DISTRO=aks and ENABLE_MONITORING=true
@@ -95,3 +97,8 @@ if [ -f "${FUNCTIONS_FILE}" ]; then
     # shellcheck disable=SC1090
     source "${FUNCTIONS_FILE}"
 fi
+
+# Initialize log collection arguments for all kubectl logs commands
+# Respects MUST_GATHER_SINCE and MUST_GATHER_SINCE_TIME environment variables
+export log_collection_args=""
+get_log_collection_args
