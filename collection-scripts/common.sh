@@ -4,6 +4,10 @@
 # Do not change this value, upstream hardcode it, change here might cause problem
 export DST_DIR="/must-gather"
 
+# Generate timestamp for final directory name
+TIMESTAMP=$(date -u +"%Y%m%d-%H%M%S")
+export FINAL_DIR="/k8s-gather.local.${TIMESTAMP}"
+
 # Use kubectl for all operations
 export KUBECTL="kubectl"
 

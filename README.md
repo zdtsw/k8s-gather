@@ -189,7 +189,7 @@ make gather-all IMG=quay.io/$USER/k8s-gather IMG_VERSION=dev NAMESPACE=my-namesp
 - `IMG_VERSION` - Image tag (default: `v1.2.0`)
 - `NAMESPACE` - Kubernetes namespace (default: `k8s-gather`)
 - `RELEASE_NAME` - Helm release name (default: `k8s-gather`)
-- `OUTPUT_DIR` - Output directory for results (default: `./my-k8s-gather-YYYYMMDD-HHMMSS`)
+- `OUTPUT_DIR` - Output directory for results (default: `./my-k8s-gather`)
 
 **Using Kustomize:**
 ```bash

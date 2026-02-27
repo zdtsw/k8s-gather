@@ -30,7 +30,7 @@ build-and-push: image-push helm-push
 # Deployment settings
 NAMESPACE ?= k8s-gather
 RELEASE_NAME ?= k8s-gather
-OUTPUT_DIR ?= ./my-k8s-gather-$(shell date +%Y%m%d-%H%M%S)
+OUTPUT_DIR ?= ./my-k8s-gather
 ##@ Must-Gather Workflow
 .PHONY: run-gather
 run-gather: ## Run must-gather job (deletes existing job if present, then installs/upgrades)
