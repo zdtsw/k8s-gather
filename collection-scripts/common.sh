@@ -66,31 +66,6 @@ function detect_k8s_distro() {
 K8S_DISTRO=$(detect_k8s_distro)
 export K8S_DISTRO
 
-# Standard Gateway API resources (optional but available across distributions)
-GATEWAY_API_RESOURCES=(
-    "gatewayclasses.gateway.networking.k8s.io"
-    "gateways.gateway.networking.k8s.io"
-    "httproutes.gateway.networking.k8s.io"
-    "grpcroutes.gateway.networking.k8s.io"
-    "referencegrants.gateway.networking.k8s.io"
-)
-
-# Istio-specific resources (only collected if Istio is installed)
-ISTIO_RESOURCES=(
-    "envoyfilters.networking.istio.io"
-    "destinationrules.networking.istio.io"
-    "virtualservices.networking.istio.io"
-    "gateways.networking.istio.io"
-)
-
-# Build DEFAULT_RESOURCES based on what's available
-DEFAULT_RESOURCES=("${GATEWAY_API_RESOURCES[@]}")
-
-# Add Istio resources if Istio is detected
-if $KUBECTL api-resources 2>/dev/null | grep -q "networking.istio.io"; then
-    DEFAULT_RESOURCES+=("${ISTIO_RESOURCES[@]}")
-fi
-
 # Source distribution-specific configuration
 DISTRO_FILE="$(dirname "${BASH_SOURCE[0]}")/distro/${K8S_DISTRO}.sh"
 if [ -f "${DISTRO_FILE}" ]; then

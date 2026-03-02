@@ -176,13 +176,13 @@ make helm-push HELM_REGISTRY=oci://quay.io/$USER/charts
 
 ### Run must-gather locally
 
-**Using Makefile (recommended):**
+**Using Makefile with Helm (recommended):**
 ```bash
 # Complete workflow: run, wait, and get results automatically
 make gather-all
 
 # Or step by step
-make run-gather      # Deploy/upgrade the job
+make run-gather      # Deploy/upgrade the job using Helm
 make wait-gather     # Wait for completion
 make get-results     # Copy results locally
 make cleanup-gather  # Manual cleanup at once (optional - wait for TTL auto-cleans after 10 min)
@@ -198,7 +198,9 @@ make gather-all IMG=quay.io/$USER/k8s-gather IMG_VERSION=dev NAMESPACE=my-namesp
 - `RELEASE_NAME` - Helm release name (default: `k8s-gather`)
 - `OUTPUT_DIR` - Output directory for results (default: `./my-k8s-gather`)
 
-**Using Kustomize:**
+> **Note:** The Makefile targets use Helm under the hood for deployment. See below for Kustomize or direct Helm usage.
+
+**Using Kustomize (alternative):**
 ```bash
 # Edit deploy/manifests/job.yaml to set your image
 kubectl apply -k deploy/manifests/

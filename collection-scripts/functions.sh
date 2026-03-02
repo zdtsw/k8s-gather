@@ -68,7 +68,7 @@ function kubectl_inspect() {
 function run_k8sgather() {
     local namespaces="$1"
     shift
-    local resources=("${DEFAULT_RESOURCES[@]}" "$@")
+    local resources=("$@")
 
     for ns in $namespaces; do
         # Inspect custom resources in this namespace

@@ -13,6 +13,13 @@ resources=(
     "ztunnels.sailoperator.io"  # we are not using this but we collect it
 )
 
+# Istio networking resources (brought by Sail Operator)
+resources+=(
+    "virtualservices.networking.istio.io"
+    "destinationrules.networking.istio.io"
+    "envoyfilters.networking.istio.io"
+)
+
 # Get all namespaces where these resources exist
 nslist=$(get_all_namespace "${resources[@]}")
 
