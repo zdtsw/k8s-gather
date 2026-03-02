@@ -21,44 +21,21 @@ function kubectl_inspect() {
     fi
 
     if [[ "$resource" == "namespace" ]] && [[ -n "$namespace" ]]; then
+        # Check if namespace exists first
+        if ! $KUBECTL get namespace "$namespace" &>/dev/null; then
+            echo "WARNING: Namespace $namespace does not exist, skipping"
+            return 1
+        fi
+
         echo "Gathered data for ns/${namespace}"
         local ns_dir="${dest_dir}/namespaces/${namespace}"
-        mkdir -p "${ns_dir}/pods" "${ns_dir}/core" "${ns_dir}/apps" "${ns_dir}/events"
+        mkdir -p "${ns_dir}"
 
         # Get namespace yaml
         $KUBECTL get namespace "$namespace" -o yaml > "${ns_dir}/${namespace}.yaml" 2>/dev/null
 
-        # Define resource which should be common for all distro
-        declare -A resource_map=(
-            ["all"]="core"
-            ["configmaps"]="core"
-            ["secrets"]="core"
-            ["services"]="core"
-            ["endpoints"]="core"
-            ["persistentvolumeclaims"]="core"
-            ["roles"]="core"
-            ["rolebindings"]="core"
-            ["serviceaccounts"]="core"
-            ["networkpolicies"]="core"
-            ["deployments"]="apps"
-            ["statefulsets"]="apps"
-            ["daemonsets"]="apps"
-            ["replicasets"]="apps"
-            ["jobs"]="apps"
-            ["cronjobs"]="apps"
-            ["events"]="events"
-        )
-
-        # Collect all standard resources
-        for resource_type in "${!resource_map[@]}"; do
-            local subdir="${resource_map[$resource_type]}"
-            $KUBECTL get "$resource_type" -n "$namespace" -o yaml > "${ns_dir}/${subdir}/${resource_type}.yaml" 2>/dev/null
-        done
-
-        # Only collect routes on OpenShift
-        if [[ "${K8S_DISTRO}" == "ocp" ]]; then
-            $KUBECTL get routes -n "$namespace" -o yaml > "${ns_dir}/core/routes.yaml" 2>/dev/null
-        fi
+        # Auto-discover all namespaced resources
+        auto_discover_resources "true" "${ns_dir}" "${namespace}"
 
         # Get pod logs
         for pod in $($KUBECTL get pods -n "$namespace" -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do
@@ -69,30 +46,29 @@ function kubectl_inspect() {
             # Get logs for each container
             for container in $($KUBECTL get pod "$pod" -n "$namespace" -o jsonpath='{.spec.containers[*].name}' 2>/dev/null); do
                 mkdir -p "${pod_dir}/${container}/logs"
-                $KUBECTL logs "$pod" -n "$namespace" -c "$container" $log_collection_args > "${pod_dir}/${container}/logs/current.log" 2>/dev/null
-                $KUBECTL logs "$pod" -n "$namespace" -c "$container" --previous $log_collection_args > "${pod_dir}/${container}/logs/previous.log" 2>/dev/null
+                # shellcheck disable=SC2086
+                $KUBECTL logs "$pod" -n "$namespace" -c "$container" $log_collection_args > "${pod_dir}/${container}/logs/current.log" 2>/dev/null || true
+                # shellcheck disable=SC2086
+                $KUBECTL logs "$pod" -n "$namespace" -c "$container" --previous $log_collection_args > "${pod_dir}/${container}/logs/previous.log" 2>/dev/null || true
             done
         done
+        return 0
     elif [[ -n "$namespace" ]]; then
         # Collect specific resource type in namespace
         local res_name="${resource##*/}"  # extract name after last /
         local res_dir="${dest_dir}/namespaces/${namespace}/${resource}"
         mkdir -p "${res_dir}"
         $KUBECTL get "$resource" -n "$namespace" -o yaml > "${res_dir}/${res_name}.yaml" 2>/dev/null
-    else
-        # Cluster-scoped resource
-        local res_name="${resource##*/}"  # extract name after last /
-        local res_dir="${dest_dir}/cluster-scoped-resources/${resource}"
-        mkdir -p "${res_dir}"
-        $KUBECTL get "$resource" -o yaml > "${res_dir}/${res_name}.yaml" 2>/dev/null
+        return 0
     fi
+    return 0
 }
 
 # run gather in the namespaces one by one, also collecting custom resources
 function run_k8sgather() {
     local namespaces="$1"
     shift
-    local resources=("${DEFAULT_RESOURCES[@]}" "$@")
+    local resources=("$@")
 
     for ns in $namespaces; do
         # Inspect custom resources in this namespace
@@ -129,15 +105,6 @@ function get_operator_version() {
     fi
 
     echo "RHAII version: $version"
-}
-
-function get_operator_resource() {
-    for k in $@; do
-        # Check if resource type exists first
-        if $KUBECTL api-resources --no-headers 2>/dev/null | grep -qw "${k%%.*}"; then
-            kubectl_inspect "$k" || echo "Warning collecting $k"
-        fi
-    done
 }
 
 # Get operator namespace by checking subscriptions
@@ -207,4 +174,55 @@ get_log_collection_args() {
     if [ -n "${MUST_GATHER_SINCE_TIME:-}" ]; then
         log_collection_args="--since-time=${MUST_GATHER_SINCE_TIME}"
     fi
+}
+
+# Auto-discovery function for both namespaced and cluster-scoped resources
+# Automatically discovers all available resources and collects only those that exist
+function auto_discover_resources() {
+    local namespaced="$1"
+    local dest_dir="$2"
+    local namespace="$3"   # only used if namespaced=true
+
+    local scope_flag="--namespaced=${namespaced}"
+    local ns_flag=""
+    if [[ "$namespaced" == "true" ]]; then
+        ns_flag="-n ${namespace}"
+    fi
+
+    # shellcheck disable=SC2086
+    while IFS= read -r line; do
+        local resource_name
+        local api_version
+        resource_name=$(echo "$line" | awk '{print $1}')
+        api_version=$(echo "$line" | awk '{print $3}')
+        [[ -z "$resource_name" ]] && continue # handle warning line
+
+        # Check if any resources of this type exist
+        if ! $KUBECTL get "$resource_name" $ns_flag --no-headers 2>/dev/null | grep -q .; then
+            continue  # skip if not exist
+        fi
+
+        local api_group="${api_version%/*}"
+        [[ "$api_version" != */* ]] && api_group="core" # core only show as v1
+        local subdir="${api_group}"
+
+        mkdir -p "${dest_dir}/${subdir}"
+
+        # Special handling for events: transform 'kind: List' to 'kind: EventList'
+        # This is needed for oc adm must-gather post-processing
+        if [[ "$resource_name" == "events" ]]; then
+            $KUBECTL get "$resource_name" $ns_flag -o yaml 2>/dev/null | \
+                sed 's/^kind: List$/kind: EventList/' > "${dest_dir}/${subdir}/${resource_name}.yaml"
+        else
+            $KUBECTL get "$resource_name" $ns_flag -o yaml > "${dest_dir}/${subdir}/${resource_name}.yaml" 2>/dev/null
+        fi
+    done < <($KUBECTL api-resources $scope_flag --no-headers 2>/dev/null)
+}
+
+# Auto-discover and collect all cluster-scoped resources
+function collect_cluster_scoped_resources() {
+    local dest_dir="${DST_DIR}/cluster-scoped-resources"
+    echo "Auto-discovering cluster-scoped resources..."
+    auto_discover_resources "false" "${dest_dir}"
+    echo "Cluster-scoped resources auto-discovery complete"
 }

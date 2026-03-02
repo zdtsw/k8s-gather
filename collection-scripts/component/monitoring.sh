@@ -21,7 +21,7 @@ if [[ "${K8S_DISTRO}" == "aks" && "${AKS_MONITORING_TYPE}" == "managed" ]]; then
         pod_dir="${AMA_DIR}/pods/${pod}"
         mkdir -p "${pod_dir}"
 
-        # Get pod yaml and description
+        # Get pod yaml
         $KUBECTL get pod "$pod" -n "${AMA_NS}" -o yaml > "${pod_dir}/${pod}.yaml" 2>/dev/null
 
         # Get logs for each container
@@ -60,3 +60,7 @@ else
     MONITORING_NS=${MONITORING_NAMESPACE:-${DEFAULT_MONITORING_NS:-monitoring}}
     kubectl_inspect "namespace/$MONITORING_NS" || echo "ERROR: Namespace ${MONITORING_NS} not found"
 fi
+
+echo "=========================================="
+echo "DEBUG: monitoring collection completed"
+echo "=========================================="

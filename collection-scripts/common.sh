@@ -28,24 +28,42 @@ export AKS_MONITORING_TYPE=${AKS_MONITORING_TYPE:-managed}
 # Detect xKS distro
 function detect_k8s_distro() {
     local distro="other" # the rest from ocp, cks and aks for now.
-    local kernel_version os_image provider_id
 
-    kernel_version=$($KUBECTL get nodes -o jsonpath='{.items[0].status.nodeInfo.kernelVersion}' 2>/dev/null) # for CKS
-    os_image=$($KUBECTL get nodes -o jsonpath='{.items[0].status.nodeInfo.osImage}' 2>/dev/null)  # for OCP
-    provider_id=$($KUBECTL get nodes -o jsonpath='{.items[0].spec.providerID}' 2>/dev/null) # for AKS
+    # Determine which command to use (take oc proceed at this stage does not really matter which one to use)
+    local cmd
+    if command -v oc &> /dev/null; then
+        cmd="oc"
+    elif command -v kubectl &> /dev/null; then
+        cmd="kubectl"
+    else # This should never get hit
+        echo "ERROR: Neither 'oc' nor 'kubectl' command found. Cannot proceed." >&2
+        exit 1
+    fi
 
-    # Check for OpenShift first (catches ROSA and ARO)
-    if echo "$os_image" | grep -q "Red Hat Enterprise Linux CoreOS"; then
-        distro="ocp"
-    # Check API resources for OpenShift (fallback)
-    elif $KUBECTL api-resources 2>/dev/null | grep -q "route.openshift.io"; then
-        distro="ocp"
-    # Check kernel version for CoreWeave
-    elif echo "$kernel_version" | grep -qi "coreweave"; then
-        distro="cks"
-    # Check for Azure Kubernetes Service (after OCP to avoid ARO confusion)
-    elif echo "$provider_id" | grep -q "^azure://"; then
-        distro="aks"
+    # Check if infrastructure.config.openshift.io/cluster resource exists
+    if ${cmd} get infrastructure cluster &>/dev/null; then
+        local kernel_version provider_id
+        kernel_version=$(${cmd} get nodes -o jsonpath='{.items[0].status.nodeInfo.kernelVersion}' 2>/dev/null)
+        provider_id=$(${cmd} get nodes -o jsonpath='{.items[0].spec.providerID}' 2>/dev/null)
+
+        # Check kernel version for CKS
+        if echo "$kernel_version" | grep -qi "coreweave"; then
+            distro="cks"
+        # Check provider for AKS
+        elif echo "$provider_id" | grep -q "^azure://"; then
+            distro="aks"
+        fi
+    else
+        local os_image
+        os_image=$(${cmd} get nodes -o jsonpath='{.items[0].status.nodeInfo.osImage}' 2>/dev/null)
+
+        # Check for OpenShift - CoreOS image (catches ROSA and ARO)
+        if echo "$os_image" | grep -q "Red Hat Enterprise Linux CoreOS"; then
+            distro="ocp"
+        # Check API resources for OpenShift (fallback)
+        elif ${cmd} api-resources 2>/dev/null | grep -q "route.openshift.io"; then
+            distro="ocp"
+        fi
     fi
 
     echo "$distro"
@@ -54,31 +72,6 @@ function detect_k8s_distro() {
 # Initialize distro detection and export for use in all scripts
 K8S_DISTRO=$(detect_k8s_distro)
 export K8S_DISTRO
-
-# Standard Gateway API resources (optional but available across distributions)
-GATEWAY_API_RESOURCES=(
-    "gatewayclasses.gateway.networking.k8s.io"
-    "gateways.gateway.networking.k8s.io"
-    "httproutes.gateway.networking.k8s.io"
-    "grpcroutes.gateway.networking.k8s.io"
-    "referencegrants.gateway.networking.k8s.io"
-)
-
-# Istio-specific resources (only collected if Istio is installed)
-ISTIO_RESOURCES=(
-    "envoyfilters.networking.istio.io"
-    "destinationrules.networking.istio.io"
-    "virtualservices.networking.istio.io"
-    "gateways.networking.istio.io"
-)
-
-# Build DEFAULT_RESOURCES based on what's available
-DEFAULT_RESOURCES=("${GATEWAY_API_RESOURCES[@]}")
-
-# Add Istio resources if Istio is detected
-if $KUBECTL api-resources 2>/dev/null | grep -q "networking.istio.io"; then
-    DEFAULT_RESOURCES+=("${ISTIO_RESOURCES[@]}")
-fi
 
 # Source distribution-specific configuration
 DISTRO_FILE="$(dirname "${BASH_SOURCE[0]}")/distro/${K8S_DISTRO}.sh"
