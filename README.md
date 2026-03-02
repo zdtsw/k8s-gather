@@ -19,12 +19,16 @@ Unlike `oc adm must-gather` which is OpenShift-specific, k8s-gather uses standar
 # Install from quay registry
 helm install k8s-gather oci://quay.io/wenzhou/charts/k8s-gather --version 1.2.0 -n k8s-gather --create-namespace
 
-# Wait for completion
-kubectl wait --for=condition=complete job/k8s-gather-job -n k8s-gather --timeout=5m
+# Wait for collection to complete
+POD=$(kubectl get pods -n k8s-gather -l job-name=k8s-gather-job -o jsonpath='{.items[0].metadata.name}')
+echo "Waiting for k8s-gather to complete..."
+until kubectl logs $POD -n k8s-gather 2>/dev/null | grep -q "DEBUG: Must-gather collection completed"; do
+  sleep 20
+done
+echo "Collection completed!"
 
 # Copy results locally
-POD=$(kubectl get pods -n k8s-gather -l job-name=k8s-gather-job -o jsonpath='{.items[0].metadata.name}')
-kubectl cp k8s-gather/$POD:/must-gather ./my-k8s-gather
+kubectl cp k8s-gather/$POD:/must-gather ./my-k8s-gather.local
 
 # Cleanup
 helm uninstall k8s-gather -n k8s-gather && kubectl delete namespace k8s-gather
@@ -196,17 +200,44 @@ make gather-all IMG=quay.io/$USER/k8s-gather IMG_VERSION=dev NAMESPACE=my-namesp
 - `IMG_VERSION` - Image tag (default: `v1.2.0`)
 - `NAMESPACE` - Kubernetes namespace (default: `k8s-gather`)
 - `RELEASE_NAME` - Helm release name (default: `k8s-gather`)
-- `OUTPUT_DIR` - Output directory for results (default: `./my-k8s-gather`)
+- `OUTPUT_DIR` - Output directory for results (default: `./my-k8s-gather.local`)
 
-**Using Kustomize:**
+**Using deploy.sh:**
 ```bash
-# Edit deploy/manifests/job.yaml to set your image
+# Create and run k8s-gather
+deploy/deploy.sh create
+
+# With optional components
+ENABLE_WVA=true ENABLE_MONITORING=true deploy/deploy.sh create
+
+# For AKS with self-hosted monitoring
+ENABLE_MONITORING=true AKS_MONITORING_TYPE=self-hosted deploy/deploy.sh create
+
+# Cleanup
+deploy/deploy.sh delete
+
+# Custom namespace
+NAMESPACE=my-gather deploy/deploy.sh create
+```
+
+**Environment Variables:**
+- `NAMESPACE` - Namespace to use (default: `k8s-gather`)
+- `ENABLE_WVA` - Enable workload-variant-autoscaler collection (default: `false`)
+- `ENABLE_MONITORING` - Enable monitoring collection (default: `false`)
+- `AKS_MONITORING_TYPE` - AKS monitoring type: `managed` or `self-hosted` (default: `managed`)
+
+**Using Kustomize (advanced):**
+
+For advanced customization beyond deploy.sh, you can use kustomize directly:
+
+```bash
+# Edit deploy/manifests/job.yaml to customize
 kubectl apply -k deploy/manifests/
-kubectl wait --for=condition=complete job/k8s-gather-job -n k8s-gather --timeout=5m
-POD=$(kubectl get pods -n k8s-gather -l job-name=k8s-gather-job -o jsonpath='{.items[0].metadata.name}')
-kubectl cp k8s-gather/$POD:/must-gather ./my-k8s-gather
+# ... manual steps for waiting and copying results
 kubectl delete -k deploy/manifests/
 ```
+
+> **Tip:** Use `deploy/deploy.sh` for simpler deployment - it handles the complete workflow automatically.
 
 **Using Helm directly:**
 ```bash
@@ -219,9 +250,11 @@ kubectl delete job k8s-gather-job -n k8s-gather
 helm upgrade k8s-gather ./deploy/helm/k8s-gather -n k8s-gather
 
 # Get results
-kubectl wait --for=condition=complete job/k8s-gather-job -n k8s-gather --timeout=5m
 POD=$(kubectl get pods -n k8s-gather -l job-name=k8s-gather-job -o jsonpath='{.items[0].metadata.name}')
-kubectl cp k8s-gather/$POD:/must-gather ./my-k8s-gather
+until kubectl logs $POD -n k8s-gather 2>/dev/null | grep -q "DEBUG: Must-gather collection completed"; do
+  sleep 20
+done
+kubectl cp k8s-gather/$POD:/must-gather ./my-k8s-gather.local
 
 # Cleanup (or wait for TTL auto-cleanup after 10 minutes)
 helm uninstall k8s-gather -n k8s-gather
@@ -232,5 +265,5 @@ helm uninstall k8s-gather -n k8s-gather
 ## Permissions
 
 **Deploying k8s-gather requires cluster-admin permissions** because:
-- Creates a ClusterRoleBinding with `cluster-admin` role
+- Creates a ClusterRoleBinding with `k8s-gather-reader` ClusterRole
 - The gather pod needs cluster-wide read access to collect data from all namespaces

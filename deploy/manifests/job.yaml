@@ -10,7 +10,7 @@ spec:
       restartPolicy: Never
       containers:
       - name: gather
-        image: quay.io/wenzhou/k8s-gather:v1.2.0
+        image: quay.io/wenzhou/k8s-gather:latest
         imagePullPolicy: Always
         env:
         - name: ENABLE_ALL
@@ -25,6 +25,10 @@ spec:
           value: "false"
         - name: ENABLE_WVA
           value: "false"
+        - name: ENABLE_MONITORING
+          value: "false"
+        - name: AKS_MONITORING_TYPE
+          value: "managed"  # managed (Azure Managed Prometheus) or self-hosted (kube-prometheus-stack)
         # - name: OPERATOR_NAMESPACE
         #   value: "openshift-operators"
         # - name: APPLICATIONS_NAMESPACE
