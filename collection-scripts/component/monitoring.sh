@@ -60,3 +60,7 @@ else
     MONITORING_NS=${MONITORING_NAMESPACE:-${DEFAULT_MONITORING_NS:-monitoring}}
     kubectl_inspect "namespace/$MONITORING_NS" || echo "ERROR: Namespace ${MONITORING_NS} not found"
 fi
+
+echo "=========================================="
+echo "DEBUG: monitoring collection completed"
+echo "=========================================="
