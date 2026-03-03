@@ -180,13 +180,13 @@ make helm-push HELM_REGISTRY=oci://quay.io/$USER/charts
 
 ### Run must-gather locally
 
-**Using Makefile (recommended):**
+**Using Makefile with Helm (recommended):**
 ```bash
 # Complete workflow: run, wait, and get results automatically
 make gather-all
 
 # Or step by step
-make run-gather      # Deploy/upgrade the job
+make run-gather      # Deploy/upgrade the job using Helm
 make wait-gather     # Wait for completion
 make get-results     # Copy results locally
 make cleanup-gather  # Manual cleanup at once (optional - wait for TTL auto-cleans after 10 min)
@@ -194,7 +194,7 @@ make cleanup-gather  # Manual cleanup at once (optional - wait for TTL auto-clea
 # Customize with variables
 make gather-all IMG=quay.io/$USER/k8s-gather IMG_VERSION=dev NAMESPACE=my-namespace
 ```
-
+**Note:** The Makefile targets use Helm under the hood for deployment. See below for Kustomize or direct Helm usage.
 **Available Makefile variables:**
 - `IMG` - Container image name (default: `quay.io/$USER/k8s-gather`)
 - `IMG_VERSION` - Image tag (default: `v1.2.0`)
@@ -203,6 +203,7 @@ make gather-all IMG=quay.io/$USER/k8s-gather IMG_VERSION=dev NAMESPACE=my-namesp
 - `OUTPUT_DIR` - Output directory for results (default: `./my-k8s-gather.local`)
 
 **Using deploy.sh:**
+
 ```bash
 # Create and run k8s-gather
 deploy/deploy.sh create
@@ -226,7 +227,7 @@ NAMESPACE=my-gather deploy/deploy.sh create
 - `ENABLE_MONITORING` - Enable monitoring collection (default: `false`)
 - `AKS_MONITORING_TYPE` - AKS monitoring type: `managed` or `self-hosted` (default: `managed`)
 
-**Using Kustomize (advanced):**
+**Using Kustomize (alternative):**
 
 For advanced customization beyond deploy.sh, you can use kustomize directly:
 

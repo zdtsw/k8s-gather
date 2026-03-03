@@ -51,6 +51,6 @@ nslist=$(get_all_namespace "${resources[@]}")
 run_k8sgather "$nslist" "${resources[@]}"
 
 # Collect Istio namespace (Sail Operator and Istio control plane)
-# Use user override, then distro default, then fallback to istio-system
+# Usr can override, then distro default, then fallback to istio-system
 ISTIO_NS=${ISTIO_NAMESPACE:-${DEFAULT_ISTIO_NS:-istio-system}}
 kubectl_inspect "namespace/$ISTIO_NS" || echo "ERROR: Namespace ${ISTIO_NS} not found"
