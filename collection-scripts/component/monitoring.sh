@@ -62,5 +62,5 @@ else
 fi
 
 echo "=========================================="
-echo "DEBUG: monitoring collection completed"
+echo "DEBUG: Monitoring collection completed"
 echo "=========================================="

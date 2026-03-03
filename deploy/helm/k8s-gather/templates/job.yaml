@@ -4,6 +4,10 @@ kind: Job
 metadata:
   name: {{ .Values.job.name }}
   namespace: {{ .Values.namespace.name }}
+  annotations:
+    # Hook ensures old job is deleted before creating new one on helm upgrade
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-delete-policy": before-hook-creation
 spec:
   {{- if .Values.job.ttlSecondsAfterFinished }}
   ttlSecondsAfterFinished: {{ .Values.job.ttlSecondsAfterFinished }}

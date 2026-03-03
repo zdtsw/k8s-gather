@@ -52,7 +52,7 @@ pod:
     # routeNamespace: "openshift-ingress"  # OCP only
     # kuadrantNamespace: "kuadrant-system"  # OCP only
 
-    enableMonitoring: true
+    enableMonitoring: false
     # Monitoring configuration (only applies when enableMonitoring=true)
     # monitoringNamespace: "monitoring"  # Prometheus/Grafana namespace (self-hosted monitoring)
     # aksMonitoringType: "managed"  # AKS only: "managed" (Azure Managed Prometheus) or "self-hosted" (kube-prometheus-stack)
@@ -67,4 +67,4 @@ job:
   name: k8s-gather-job
   # Auto-cleanup completed job after specified seconds (optional)
   # Uncomment to enable automatic deletion after job completes
-  ttlSecondsAfterFinished: 600  # Clean up Job 10 min after completion
+  ttlSecondsAfterFinished: 3600  # Clean up Job 1 hour after completion

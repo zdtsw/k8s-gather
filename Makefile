@@ -30,7 +30,7 @@ build-and-push: image-push helm-push
 # Deployment settings
 NAMESPACE ?= k8s-gather
 RELEASE_NAME ?= k8s-gather
-OUTPUT_DIR ?= ./my-k8s-gather
+OUTPUT_DIR ?= ./my-k8s-gather.local
 ##@ Must-Gather Workflow
 .PHONY: run-gather
 run-gather: ## Run must-gather job (deletes existing job if present, then installs/upgrades)
@@ -44,8 +44,12 @@ run-gather: ## Run must-gather job (deletes existing job if present, then instal
 
 .PHONY: wait-gather
 wait-gather: ## Wait for must-gather job to complete
-	@echo "Waiting for job to complete (timeout: 10m)..."
-	kubectl wait --for=condition=complete job/$(RELEASE_NAME)-job -n $(NAMESPACE) --timeout=10m
+	@echo "Waiting for k8s-gather to complete..."
+	@POD_NAME=$$(kubectl get pods -n $(NAMESPACE) -l job-name=$(RELEASE_NAME)-job -o jsonpath='{.items[0].metadata.name}'); \
+	until kubectl logs $$POD_NAME -n $(NAMESPACE) 2>/dev/null | grep -q "DEBUG: Must-gather collection completed"; do \
+		sleep 20; \
+	done
+	@echo "Collection completed!"
 
 .PHONY: get-results
 get-results: ## Copy results from must-gather pod

@@ -30,7 +30,7 @@ resources+=(
 # https://gateway-api-inference-extension.sigs.k8s.io/
 resources+=(
     "inferencepools.inference.networking.k8s.io"
-    "inferencemodelrewrites.inference.networking.x-k8s.io"
+    # "inferencemodelrewrites.inference.networking.x-k8s.io" enabled for LoRA
     "inferenceobjectives.inference.networking.x-k8s.io"
     "inferencemodels.inference.networking.x-k8s.io"  # to be deleted
 )
