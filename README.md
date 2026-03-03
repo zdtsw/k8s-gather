@@ -28,7 +28,7 @@ done
 echo "Collection completed!"
 
 # Copy results locally
-kubectl cp k8s-gather/$POD:/must-gather ./my-k8s-gather.local
+kubectl cp k8s-gather/$POD:/must-gather ./my-k8s-gather.local 2>/dev/null | grep -v "tar: Removing"
 
 # Cleanup
 helm uninstall k8s-gather -n k8s-gather && kubectl delete namespace k8s-gather
@@ -80,7 +80,7 @@ Available configuration options:
 | `ENABLE_KUBERAY` | `false` | Enable KubeRay collection (when ENABLE_ALL=false) |
 | `ENABLE_MAAS` | `false` | Enable MaaS (Model as a Service) collection (when ENABLE_ALL=false) |
 | `ENABLE_WVA` | `false` | Enable WVA (Workload Variant Autoscaler) collection (when ENABLE_ALL=false) |
-| `ENABLE_MONITORING` | `true` | Enable Prometheus Operator monitoring collection |
+| `ENABLE_MONITORING` | `false` | Enable Prometheus Operator monitoring collection |
 | `OPERATOR_NAMESPACE` | *auto-detected* | Operator namespace (opendatahub-operator or rhods-operator, fallback: redhat-ods-operator) |
 | `APPLICATIONS_NAMESPACE` | *auto-mapped* | Application namespace (mapped from operator namespace, or override) |
 | `ISTIO_NAMESPACE` | `istio-system` | Istio service mesh namespace (all distributions) |
@@ -93,9 +93,9 @@ Available configuration options:
 
 ### Components
 
-By default, KServe/LLM-D and monitoring are collected (`ENABLE_SERVING=true`, `ENABLE_MONITORING=true`). You can:
+By default, only KServe/LLM-D is collected (`ENABLE_SERVING=true`). You can:
 - Set `ENABLE_ALL=true` to collect all components (KServe/LLM-D, Kueue, KubeRay, MaaS, Workload Variant Autoscaler)
-- Or individually enable components with `ENABLE_KUEUE=true`, `ENABLE_KUBERAY=true`, `ENABLE_MAAS=true`, and/or `ENABLE_WVA=true`
+- Or individually enable components with `ENABLE_KUEUE=true`, `ENABLE_KUBERAY=true`, `ENABLE_MAAS=true`, `ENABLE_WVA=true`, and/or `ENABLE_MONITORING=true`
 
 Available components:
 - **KServe/LLM-D** - Model Serving (KServe, LLM-D, Gateway API Inference Extension)
@@ -255,7 +255,7 @@ POD=$(kubectl get pods -n k8s-gather -l job-name=k8s-gather-job -o jsonpath='{.i
 until kubectl logs $POD -n k8s-gather 2>/dev/null | grep -q "DEBUG: Must-gather collection completed"; do
   sleep 20
 done
-kubectl cp k8s-gather/$POD:/must-gather ./my-k8s-gather.local
+kubectl cp k8s-gather/$POD:/must-gather ./my-k8s-gather.local 2>/dev/null | grep -v "tar: Removing"
 
 # Cleanup (or wait for TTL auto-cleanup after 10 minutes)
 helm uninstall k8s-gather -n k8s-gather

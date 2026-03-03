@@ -83,7 +83,9 @@ EOF
     echo "Collection completed!"
 
     echo "Step 3: Retrieving collected data to $OUTPUT_DIR..."
-    kubectl cp $NAMESPACE/$POD_NAME:/must-gather $OUTPUT_DIR
+    kubectl cp $NAMESPACE/$POD_NAME:/must-gather $OUTPUT_DIR 2>/dev/null | grep -v "tar: Removing"
+
+    echo "Done! Collected data is in: $OUTPUT_DIR"
     echo "To cleanup, run: $0 delete"
 }
 
