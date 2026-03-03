@@ -5,6 +5,7 @@ kind: Kustomization
 namespace: k8s-gather
 
 resources:
+  - namespace.yaml
   - serviceaccount.yaml
   - clusterrolebinding.yaml
   - clusterrole.yaml
